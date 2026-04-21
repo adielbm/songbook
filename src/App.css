@@ -1,0 +1,464 @@
+.app-shell {
+  min-height: 100vh;
+  padding: 20px;
+  color: var(--text);
+}
+
+.list-screen,
+.song-screen {
+  display: grid;
+  gap: 14px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.search-wrap input {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.folder-group {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  padding: 10px;
+}
+
+.folder-list {
+  display: grid;
+  gap: 8px;
+}
+
+.folder-card {
+  text-align: left;
+  border: 1px solid var(--border);
+  background: var(--panel2);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.folder-group h2 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.song-list {
+  display: grid;
+  gap: 6px;
+}
+
+.song-card {
+  text-align: left;
+  border: 1px solid var(--border);
+  background: var(--field);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.song-card strong {
+  display: block;
+  font-weight: 500;
+}
+
+.song-card span,
+.hint,
+.error-banner {
+  color: var(--muted);
+}
+
+.song-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: start;
+  justify-content: space-between;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.control-block {
+    border-radius: 8px;
+    padding: 0 8px;
+    min-width: 120px;
+    display: grid;
+    gap: 6px;
+}
+
+.button-row {
+  display: flex;
+  gap: 6px;
+}
+
+.button-row button:first-child {
+  min-width: 52px;
+}
+
+button {
+  border: 1px solid var(--border);
+  background: var(--field);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 7px 10px;
+      min-width: 3em;
+}
+
+.song-view {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  padding: 12px;
+  font-size: var(--song-font-size, 18px);
+}
+
+.song-header h1 {
+  margin: 0;
+  font-size: 1.3em;
+}
+
+.capo-line {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 0.9em;
+}
+
+.song-header p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 0.9em;
+}
+
+.fingering-chip,
+.fingering-chip span,
+.fingering-chip strong {
+  font-family: 'Miriam Libre', sans-serif;
+}
+
+.custom-line {
+  font-family: 'Roboto Mono', monospace;
+}
+
+.song-top-meta {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.chopro-sheet {
+  margin-top: 10px;
+  text-align: right;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.chopro-sheet .section {
+    margin: 0.85rem 0 0.45rem;
+    color: var(--accent);
+    font-size: 1.08rem;
+    background: var(--bg);
+    padding: 0px 1em;
+}
+
+.chopro-sheet .line-block {
+  margin: 0.35rem 0 0.7rem;
+}
+
+.chopro-sheet .line-block.empty {
+  min-height: 1.4rem;
+}
+
+.chopro-sheet .phrase-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  direction: inherit;
+}
+
+.chopro-sheet .phrase-row.no-lyrics {
+  gap: 0.15rem 0.35rem;
+}
+
+.chopro-sheet .phrase-block {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.chopro-sheet .phrase-chord,
+.chopro-sheet .phrase-lyric {
+  margin: 0;
+  padding: 0;
+  white-space: pre-wrap;
+  direction: inherit;
+  unicode-bidi: plaintext;
+  text-align: right;
+  font-family: 'Miriam Libre', sans-serif;
+  font-size: 0.98rem;
+  line-height: 1.45;
+}
+
+.chopro-sheet .phrase-chord {
+  min-height: 1.2rem;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.chopro-sheet .phrase-chord.empty,
+.chopro-sheet .phrase-lyric.empty {
+  visibility: hidden;
+}
+
+.chopro-sheet .spacer {
+  height: 0.5rem;
+}
+
+.custom-sheet {
+  margin-top: 12px;
+  display: grid;
+  gap: 12px;
+}
+
+.custom-sheet-ltr,
+.custom-sheet-ltr .custom-lines,
+.custom-sheet-ltr .custom-line {
+  direction: ltr;
+  text-align: left;
+}
+
+.custom-sheet-ltr .custom-line {
+  unicode-bidi: plaintext;
+}
+
+.custom-section h3,
+.fingerings h3 {
+  margin: 0 0 6px;
+  font-size: 0.7em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.custom-lines {
+  display: grid;
+  gap: 4px;
+}
+
+.custom-line {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.45;
+}
+
+.token-chord {
+  color: var(--text);
+}
+
+.token-muted {
+  color: var(--muted);
+}
+
+.fingering-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 6px;
+}
+
+.fingering-chip {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--field);
+  padding: 6px;
+}
+
+.fingering-list.simple {
+  grid-template-columns: repeat(auto-fit, minmax(96px, max-content));
+}
+
+.fingering-chip.simple {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 8px;
+}
+
+.fingering-chip.simple span:first-child {
+  color: var(--text);
+}
+
+.fingering-chip.simple span:last-child {
+  color: var(--muted);
+}
+
+.fingering-chip strong {
+  display: block;
+}
+
+@media (max-width: 700px) {
+  .app-shell {
+    padding: 12px;
+  }
+}
+
+@page {
+  margin: 6mm;
+}
+
+@media print {
+  :root {
+    color-scheme: light;
+    --bg: #ffffff;
+    --panel: #ffffff;
+    --panel2: #ffffff;
+    --field: #ffffff;
+    --border: #000000;
+    --text: #000000;
+    --text-strong: #000000;
+    --muted: #000000;
+    --accent: #000000;
+  }
+
+  html,
+  body,
+  #root,
+  .app-shell {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+  }
+
+  .list-screen,
+  .search-wrap,
+  .folder-list,
+  .song-list,
+  .header-row,
+  .song-toolbar,
+  .controls,
+  .control-block,
+  button,
+  input,
+  .hint,
+  .error-banner {
+    display: none !important;
+  }
+
+  .song-screen {
+    display: block !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    gap: 0 !important;
+  }
+
+  .song-view {
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    margin: 0 !important;
+    padding: 1mm 1mm 0 !important;
+    box-shadow: none !important;
+    font-size: 12pt !important;
+  }
+
+  .song-view * {
+    color: #000000 !important;
+    background: transparent !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+  }
+
+  .song-top-meta {
+    gap: 1mm;
+    margin-bottom: 1mm;
+  }
+
+  .song-header h1,
+  .song-header p,
+  .capo-line {
+    margin: 0;
+  }
+
+  .chopro-sheet,
+  .custom-sheet {
+    margin-top: 1.5mm;
+    gap: 1.5mm;
+  }
+
+  .chopro-sheet .section,
+  .custom-section h3 {
+    margin: 1mm 0 0.4mm;
+    font-size: 10pt;
+    letter-spacing: 0;
+  }
+
+  .chopro-sheet .line-block {
+    margin: 0 0 0.8mm;
+  }
+
+  .chopro-sheet .line-block.empty,
+  .chopro-sheet .spacer {
+    min-height: 0;
+    height: 1mm;
+  }
+
+  .chopro-sheet .phrase-chord,
+  .chopro-sheet .phrase-lyric,
+  .fingering-chip,
+  .fingering-chip span,
+  .fingering-chip strong {
+    font-family: 'Miriam Libre', sans-serif !important;
+  }
+
+  .custom-line {
+    font-family: 'Roboto Mono', monospace !important;
+  }
+
+  .chopro-sheet .phrase-chord,
+  .chopro-sheet .phrase-lyric,
+  .custom-line {
+    line-height: 1.2;
+  }
+
+  .fingering-list,
+  .fingering-chip {
+    gap: 1mm;
+    padding: 0;
+    border: 0;
+  }
+
+
+
+
+    .chopro-sheet .section {
+      background: black !important;
+      color: white !important;
+      display: inline;
+    }
+
+
+}

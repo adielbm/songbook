@@ -1,0 +1,130 @@
+@import "tailwindcss";
+@import "@heroui/styles";
+
+:root {
+  color-scheme: light;
+  --bg: #f3f6f2;
+  --panel: #fcfffb;
+  --panel-soft: #e9efe7;
+  --line: #beccbe;
+  --text: #162015;
+  --muted: #4f6650;
+  --accent: #1f7a47;
+  --background: var(--bg);
+  --foreground: var(--text);
+}
+
+:root.dark,
+.dark {
+  color-scheme: dark;
+  --bg: #101514;
+  --panel: #161b1a;
+  --panel-soft: #1f2523;
+  --line: #33403b;
+  --text: #e8f0ea;
+  --muted: #9fb0a8;
+  --accent: #5dd49a;
+  --background: var(--bg);
+  --foreground: var(--text);
+}
+
+html,
+body {
+  min-height: 100%;
+  background: radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 14%, transparent) 0, var(--bg) 42%, color-mix(in srgb, var(--accent) 6%, var(--bg)) 100%);
+  color: var(--text);
+}
+
+body {
+  margin: 0;
+}
+
+.song-sheet {
+  font-size: var(--song-font-size, 18px);
+}
+
+.chopro-sheet {
+  margin-top: 10px;
+  line-height: 1.45;
+}
+
+.chopro-sheet .section {
+  margin: 0.85rem 0 0.45rem;
+  color: var(--accent);
+  font-size: 1.08em;
+  background: var(--panel-soft);
+  padding: 0 1em;
+}
+
+.chopro-sheet .line-block {
+  margin: 0.35rem 0 0.7rem;
+}
+
+.chopro-sheet .line-block.empty {
+  min-height: 1.4rem;
+}
+
+.chopro-sheet .phrase-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  direction: inherit;
+}
+
+.chopro-sheet .phrase-row.no-lyrics {
+  gap: 0.15rem 0.35rem;
+}
+
+.chopro-sheet .phrase-block {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.chopro-sheet .phrase-chord,
+.chopro-sheet .phrase-lyric {
+  margin: 0;
+  padding: 0;
+  white-space: pre-wrap;
+  direction: inherit;
+  unicode-bidi: plaintext;
+  text-align: right;
+  font-family: var(--font-miriam), sans-serif;
+  font-size: 0.98em;
+  line-height: 1.45;
+}
+
+.chopro-sheet .phrase-chord {
+  min-height: 1.2rem;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.chopro-sheet .phrase-chord.empty,
+.chopro-sheet .phrase-lyric.empty {
+  visibility: hidden;
+}
+
+.chopro-sheet .spacer {
+  height: 0.5rem;
+}
+
+@media print {
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .song-sheet {
+    border: 0 !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+}
