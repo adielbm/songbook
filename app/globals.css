@@ -1,5 +1,18 @@
+@import url('https://fonts.googleapis.com/css2?family=Miriam+Libre:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap');
 @import "tailwindcss";
 @import "@heroui/styles";
+
+@theme {
+  --font-mono: "Roboto Mono", monospace;
+}
+/* import fonts:
+Miriam Libre and Roboto Mono
+*/
+
+body {
+  font-family: 'Miriam Libre', sans-serif;
+}
 
 :root {
   color-scheme: light;
@@ -8,7 +21,7 @@
   --panel-soft: #e9efe7;
   --line: #beccbe;
   --text: #162015;
-  --muted: #4f6650;
+  --muted: #42cc64;
   --accent: #1f7a47;
   --background: var(--bg);
   --foreground: var(--text);
@@ -22,7 +35,7 @@
   --panel-soft: #1f2523;
   --line: #33403b;
   --text: #e8f0ea;
-  --muted: #9fb0a8;
+  --muted: #35af76;
   --accent: #5dd49a;
   --background: var(--bg);
   --foreground: var(--text);
@@ -41,6 +54,7 @@ body {
 
 .song-sheet {
   font-size: var(--song-font-size, 18px);
+  font-family: 'Miriam Libre', sans-serif;
 }
 
 .chopro-sheet {
@@ -90,7 +104,6 @@ body {
   direction: inherit;
   unicode-bidi: plaintext;
   text-align: right;
-  font-family: var(--font-miriam), sans-serif;
   font-size: 0.98em;
   line-height: 1.45;
 }
@@ -99,6 +112,7 @@ body {
   min-height: 1.2rem;
   color: var(--accent);
   font-weight: 700;
+  font-family: 'Roboto Mono', monospace;
 }
 
 .chopro-sheet .phrase-chord.empty,

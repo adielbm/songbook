@@ -500,7 +500,7 @@ export function SongbookApp() {
       .map((folder) => ({ kind: 'folder', folder }))
 
     const songRows = routeSongs
-      .filter((entry) => entry.folder === currentFolder)
+      .filter((entry) => (normalizedQuery === '' ? entry.folder === currentFolder : true))
       .filter((entry) => songMatchesQuery(entry, normalizedQuery))
       .map((entry) => ({
         kind: 'song',
@@ -564,15 +564,36 @@ export function SongbookApp() {
   const view: SongView | null = selectedSongEntry ? buildSongView(selectedSongEntry.song, transpose) : null
 
   return (
-    <div className="mx-auto min-h-screen max-w-6xl px-2 py-3 md:px-4" style={{ ['--song-font-size' as string]: `${fontSize}px` }}>
-      <header className="no-print z-20 mb-3 rounded-[1.2rem] border border-[var(--line)] bg-[color-mix(in_srgb,var(--panel)_90%,transparent)] p-2 shadow-[0_12px_30px_rgba(0,0,0,0.06)] backdrop-blur supports-[backdrop-filter]:bg-[color-mix(in_srgb,var(--panel)_84%,transparent)]">
+    <div className="mx-auto min-h-screen max-w-6xl px-1.5 py-2 md:px-3" style={{ ['--song-font-size' as string]: `${fontSize}px` }}>
+      <header className="no-print z-20 mb-3 rounded-[1.2rem] border border-[var(--line)] bg-[color-mix(in_srgb,var(--panel)_90%,transparent)] p-1.5 shadow-[0_12px_30px_rgba(0,0,0,0.06)] backdrop-blur supports-[backdrop-filter]:bg-[color-mix(in_srgb,var(--panel)_84%,transparent)]">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <div>
-            <h1 className="m-0 text-base font-semibold leading-tight">Library</h1>
+          <div className="flex items-center gap-2 text-[0.65rem] text-[var(--muted)]">
+            <span>Sync: {syncMetaText}</span>
+            {pulling ? (
+              <span className="inline-flex items-center gap-2">
+                <Spinner size="sm" />
+                {pullProgress.done}/{pullProgress.total || '?'}
+              </span>
+            ) : null}
           </div>
 
           <div className="flex items-center gap-1.5">
             <ThemeToggle />
+            <Button
+              aria-label="Sync repository"
+              variant="secondary"
+              onPress={() => {
+                if (!settings) {
+                  navigate({ mode: 'settings' })
+                  return
+                }
+                void handlePull()
+              }}
+              className="gap-1.5"
+            >
+              <RefreshCw size={16} className={pulling ? 'animate-spin' : ''} />
+              <span className="text-xs font-medium">{songs.length}</span>
+            </Button>
             <Button
               aria-label="Open settings"
               variant={route.mode === 'settings' ? 'primary' : 'outline'}
@@ -587,45 +608,14 @@ export function SongbookApp() {
           </div>
         </div>
 
-        <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+        <div className="grid gap-2">
           <SearchField className="w-full" fullWidth onChange={setQuery} value={query} variant="secondary">
-            <SearchField.Group className="h-10 rounded-full border border-[var(--line)] bg-[var(--panel)] px-2 shadow-[0_6px_16px_rgba(0,0,0,0.05)] transition-colors data-[focus-within=true]:border-[var(--accent)] data-[focus-within=true]:bg-[var(--panel)]">
+            <SearchField.Group className="h-9 rounded-full border border-[var(--line)] bg-[var(--panel)] px-2 shadow-[0_6px_16px_rgba(0,0,0,0.05)] transition-colors data-[focus-within=true]:border-[var(--accent)] data-[focus-within=true]:bg-[var(--panel)]">
               <SearchField.SearchIcon className="pointer-events-none shrink-0 text-[var(--muted)]" />
               <SearchField.Input aria-label="Search songs or folders" className="text-sm placeholder:text-[var(--muted)]" placeholder="Search" />
               <SearchField.ClearButton className="shrink-0 rounded-full bg-[var(--panel-soft)] p-1 text-[var(--muted)]" />
             </SearchField.Group>
           </SearchField>
-
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <Button
-                aria-label="Sync repository"
-                variant="primary"
-                onPress={() => {
-                  if (!settings) {
-                    navigate({ mode: 'settings' })
-                    return
-                  }
-                  void handlePull()
-                }}
-              >
-                <RefreshCw size={16} />
-              </Button>
-              <Chip variant="secondary">
-                {songs.length}
-              </Chip>
-            </div>
-
-            <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-              <span>Sync: {syncMetaText}</span>
-              {pulling ? (
-                <span className="inline-flex items-center gap-2">
-                  <Spinner size="sm" />
-                  {pullProgress.done}/{pullProgress.total || '?'}
-                </span>
-              ) : null}
-            </div>
-          </div>
         </div>
       </header>
 
@@ -773,21 +763,17 @@ export function SongbookApp() {
           </div>
 
           <Card className="border border-[var(--line)] bg-[var(--panel)]">
-            <Card.Header className="flex items-center justify-between gap-2">
-              <div>
-                <h3 className="m-0 text-lg font-semibold">Folders and songs</h3>
-                <p className="m-0 text-sm text-[var(--muted)]">{currentFolder || 'Repository root'}</p>
-              </div>
-              <Chip variant="secondary">{status === 'loading' ? 'Loading' : 'Ready'}</Chip>
-            </Card.Header>
-            <Separator />
-            <Card.Content className="grid gap-1 p-2">
-              <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-3 py-2 text-xs uppercase tracking-[0.14em] text-[var(--muted)]">
-                <span>Type</span>
-                <span>Name</span>
-                <span />
-              </div>
-
+            {!normalizedQuery && (
+              <>
+                <Card.Header className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="m-0 text-sm text-[var(--muted)]">{currentFolder || 'Repository root'}</p>
+                  </div>
+                </Card.Header>
+                <Separator />
+              </>
+            )}
+            <Card.Content className="grid gap-1 p-1">
               {visibleRows.length ? (
                 visibleRows.map((row) => {
                   if (row.kind === 'folder') {
@@ -796,7 +782,7 @@ export function SongbookApp() {
                     return (
                       <a
                         key={row.folder}
-                        className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-transparent px-3 py-2 text-left text-sm text-[var(--text)] transition-colors hover:border-[var(--line)] hover:bg-[var(--panel-soft)] focus-visible:border-[var(--accent)] focus-visible:bg-[var(--panel-soft)] focus-visible:outline-none"
+                        className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-transparent px-2 py-1.5 text-left text-sm text-[var(--text)] transition-colors hover:border-[var(--line)] hover:bg-[var(--panel-soft)] focus-visible:border-[var(--accent)] focus-visible:bg-[var(--panel-soft)] focus-visible:outline-none"
                         href={routeHash(nextRoute)}
                         onClick={() => {
                           setRoute(nextRoute)
@@ -804,10 +790,8 @@ export function SongbookApp() {
                       >
                         <span className="inline-flex items-center gap-2 text-[var(--muted)]">
                           <FolderOpen size={16} />
-                          Folder
                         </span>
                         <span className="min-w-0 truncate font-medium">{folderName(row.folder)}</span>
-                        <span className="text-xs text-[var(--muted)]">{row.folder || 'root'}</span>
                       </a>
                     )
                   }
@@ -817,7 +801,7 @@ export function SongbookApp() {
                   return (
                     <a
                       key={row.song.path}
-                      className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-transparent px-3 py-2 text-left text-sm text-[var(--text)] transition-colors hover:border-[var(--line)] hover:bg-[var(--panel-soft)] focus-visible:border-[var(--accent)] focus-visible:bg-[var(--panel-soft)] focus-visible:outline-none"
+                      className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-transparent px-2 py-1.5 text-left text-sm text-[var(--text)] transition-colors hover:border-[var(--line)] hover:bg-[var(--panel-soft)] focus-visible:border-[var(--accent)] focus-visible:bg-[var(--panel-soft)] focus-visible:outline-none"
                       href={routeHash(nextRoute)}
                       onClick={() => {
                         setRoute(nextRoute)
@@ -825,13 +809,11 @@ export function SongbookApp() {
                     >
                       <span className="inline-flex items-center gap-2 text-[var(--muted)]">
                         <Music2 size={16} />
-                        Song
                       </span>
                       <span className="min-w-0">
                         <strong className="block truncate">{row.song.title}</strong>
                         {row.song.artist ? <span className="block truncate text-xs text-[var(--muted)]">{row.song.artist}</span> : null}
                       </span>
-                      <span className="text-xs text-[var(--muted)]">{row.folder || 'root'}</span>
                     </a>
                   )
                 })
@@ -854,17 +836,6 @@ export function SongbookApp() {
             >
               <ChevronLeft size={16} />
               {route.folder || 'Folders'}
-            </Button>
-            <Button
-              aria-label="Open settings"
-              variant="secondary"
-              onPress={() => {
-                const nextRoute: AppRoute = { mode: 'settings' }
-                setRoute(nextRoute)
-                navigate(nextRoute)
-              }}
-            >
-              <Settings2 size={16} />
             </Button>
           </div>
 
@@ -976,11 +947,11 @@ export function SongbookApp() {
                       <h3 className="mb-1 text-xs uppercase tracking-[0.08em] text-[var(--accent)]">{section.label}</h3>
                       <div className="grid gap-1">
                         {section.lines.map((line, index) => (
-                          <p key={`${section.label}-${index}`} className="m-0 whitespace-pre-wrap font-mono leading-6">
+                          <p key={`${section.label}-${index}`} className="m-0 whitespace-pre-wrap leading-6">
                             {tokenizeCustomLine(line).map((token, tokenIndex) => (
                               <span
                                 key={`${section.label}-${index}-${tokenIndex}`}
-                                className={token.isChord ? 'text-[var(--text)]' : 'text-[var(--muted)]'}
+                                className={token.isChord ? 'font-mono text-[var(--text)]' : 'text-[var(--muted)]'}
                               >
                                 {token.text}
                               </span>

@@ -1,5 +1,6 @@
+
+
 :root {
-  font-family: 'Miriam Libre', sans-serif;
   line-height: 1.5;
   font-weight: 400;
   font-synthesis: none;
@@ -14,7 +15,7 @@
   --border: #567cab;
   --text: #000000;
   --text-strong: #11161e;
-  --muted: #849ac3;
+  --muted: #73a3fd;
   --accent: #08a16e;
 }
 
@@ -27,14 +28,10 @@
     --border: #2f3a49;
     --text: #e9edf2;
     --text-strong: #ffffff;
-    --muted: #a9b3c3;
+    --muted: #9ebcec;
     --accent: #80ffd9;
   }
 }
-
-
-
-
 
 * {
   box-sizing: border-box;

@@ -1,3 +1,5 @@
+
+
 .app-shell {
   min-height: 100vh;
   padding: 20px;
@@ -151,12 +153,6 @@ button {
   font-size: 0.9em;
 }
 
-.fingering-chip,
-.fingering-chip span,
-.fingering-chip strong {
-  font-family: 'Miriam Libre', sans-serif;
-}
-
 .custom-line {
   font-family: 'Roboto Mono', monospace;
 }
@@ -216,7 +212,6 @@ button {
   direction: inherit;
   unicode-bidi: plaintext;
   text-align: right;
-  font-family: 'Miriam Libre', sans-serif;
   font-size: 0.98rem;
   line-height: 1.45;
 }
@@ -424,14 +419,6 @@ button {
   .chopro-sheet .spacer {
     min-height: 0;
     height: 1mm;
-  }
-
-  .chopro-sheet .phrase-chord,
-  .chopro-sheet .phrase-lyric,
-  .fingering-chip,
-  .fingering-chip span,
-  .fingering-chip strong {
-    font-family: 'Miriam Libre', sans-serif !important;
   }
 
   .custom-line {
