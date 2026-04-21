@@ -495,15 +495,15 @@ export function SongbookApp() {
       }
     }
 
-    const folderRows = Array.from(childFolders)
-      .sort((left, right) => left.localeCompare(right))
-      .map((folder) => ({ kind: 'folder', folder }))
+  const folderRows = Array.from(childFolders)
+    .sort((left, right) => left.localeCompare(right))
+    .map((folder) => ({ kind: 'folder' as const, folder }))
 
     const songRows = routeSongs
       .filter((entry) => (normalizedQuery === '' ? entry.folder === currentFolder : true))
       .filter((entry) => songMatchesQuery(entry, normalizedQuery))
       .map((entry) => ({
-        kind: 'song',
+        kind: 'song' as const,
         folder: entry.folder,
         slug: entry.slug,
         song: entry.song,
