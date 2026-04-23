@@ -168,6 +168,24 @@ function textDirection(value: string): 'rtl' | 'ltr' {
   return /[\u0590-\u05FF]/.test(value) ? 'rtl' : 'ltr'
 }
 
+function transposeFromCapo(capo: string | null): number {
+  if (!capo) {
+    return 0
+  }
+
+  const capoMatch = capo.match(/-?\d+/)
+  if (!capoMatch) {
+    return 0
+  }
+
+  const capoValue = Number.parseInt(capoMatch[0], 10)
+  if (Number.isNaN(capoValue)) {
+    return 0
+  }
+
+  return -capoValue
+}
+
 function slugify(value: string): string {
   return value
     .trim()
@@ -628,12 +646,21 @@ export function SongbookApp() {
     navigate(nextRoute)
   }, [route, routeSongs])
 
+  useEffect(() => {
+    if (!selectedSongEntry) {
+      return
+    }
+
+    const selectedSongView = buildSongView(selectedSongEntry.song, 0)
+    setTranspose(transposeFromCapo(selectedSongView.capo))
+  }, [selectedSongEntry?.song.path])
+
   const view: SongView | null = selectedSongEntry ? buildSongView(selectedSongEntry.song, transpose) : null
 
   return (
     <div className="mx-auto min-h-screen max-w-6xl px-1.5 py-2 md:px-3" style={{ ['--song-font-size' as string]: `${fontSize}px` }}>
       {/* <div className="text-center text-[7px] text-[var(--muted)]">{syncMetaText}</div> */}
-      <header className="no-print z-20 mb-3 rounded-[1.2rem] border border-[var(--line)] bg-[var(--panel)] p-1.5">
+      <header className="no-print z-20 mb-3 rounded-[1.2rem]">
         <div className="mb-2 flex items-center justify-between gap-2">
           <Button
             aria-label="Home"
@@ -646,6 +673,8 @@ export function SongbookApp() {
           >
             <Home size={16} />
           </Button>
+
+          <hr />
 
 
           <div className="flex items-center gap-1.5">
@@ -690,10 +719,10 @@ export function SongbookApp() {
 
         <div className="grid gap-2">
           <SearchField className="w-full" fullWidth onChange={setQuery} value={query} variant="secondary">
-            <SearchField.Group className="h-9 rounded-full border border-[var(--line)] bg-[var(--panel)] px-2 transition-colors data-[focus-within=true]:border-[var(--accent)] data-[focus-within=true]:bg-[var(--panel)]">
+            <SearchField.Group className="h-9 rounded-full border border-[var(--border)]  px-2 transition-colors data-[focus-within=true]:border-[var(--accent)] data-[focus-within=true]:">
               <SearchField.SearchIcon className="pointer-events-none shrink-0 text-[var(--muted)]" />
               <SearchField.Input aria-label="Search songs or folders" className="text-sm placeholder:text-[var(--muted)]" placeholder="Search" />
-              <SearchField.ClearButton className="shrink-0 rounded-full bg-[var(--panel-soft)] p-1 text-[var(--muted)]" />
+              <SearchField.ClearButton className="shrink-0 rounded-full  p-1 text-[var(--muted)]" />
             </SearchField.Group>
           </SearchField>
         </div>
@@ -705,196 +734,141 @@ export function SongbookApp() {
           Using fallback songs until your private repo is connected and pulled.
         </p>
       ) : null}
-
       {route.mode === 'settings' ? (
         <main className="grid gap-3">
-          <Card className="overflow-hidden border border-[var(--line)] bg-[var(--panel)]">
-            <Card.Content>
-              <form className="grid gap-4" onSubmit={handleSaveSettings}>
-                <div className="grid gap-3 md:grid-cols-2">
-                  <TextField className="grid gap-1" variant="secondary">
-                    <Label>Repository</Label>
-                    <Input
-                      placeholder="owner/repo"
-                      value={draft.repository}
-                      onChange={(event) => {
-                        const value = event.currentTarget.value
-                        setDraft((state) => ({ ...state, repository: value }))
-                      }}
-                    />
-                  </TextField>
-                  <TextField className="grid gap-1" variant="secondary">
-                    <Label>Branch</Label>
-                    <Input
-                      placeholder="main"
-                      value={draft.branch}
-                      onChange={(event) => {
-                        const value = event.currentTarget.value
-                        setDraft((state) => ({ ...state, branch: value }))
-                      }}
-                    />
-                  </TextField>
-                  <TextField className="grid gap-1" variant="secondary">
-                    <Label>Chord path (optional)</Label>
-                    <Input
-                      placeholder="leave blank for repo root"
-                      value={draft.chordsPath}
-                      onChange={(event) => {
-                        const value = event.currentTarget.value
-                        setDraft((state) => ({ ...state, chordsPath: value }))
-                      }}
-                    />
-                  </TextField>
-                  <TextField className="grid gap-1" variant="secondary">
-                    <Label>GitHub token</Label>
-                    <Input
-                      placeholder="read-only token"
-                      type="password"
-                      value={draft.token}
-                      onChange={(event) => {
-                        const value = event.currentTarget.value
-                        setDraft((state) => ({ ...state, token: value }))
-                      }}
-                    />
-                  </TextField>
-                </div>
+          <form className="grid gap-4" onSubmit={handleSaveSettings}>
+            <div className="grid gap-3 md:grid-cols-2">
+              <TextField className="grid gap-1" variant="secondary">
+                <Label>Repository</Label>
+                <Input
+                  placeholder="owner/repo"
+                  value={draft.repository}
+                  onChange={(event) => {
+                    const value = event.currentTarget.value
+                    setDraft((state) => ({ ...state, repository: value }))
+                  }}
+                />
+              </TextField>
+              <TextField className="grid gap-1" variant="secondary">
+                <Label>Branch</Label>
+                <Input
+                  placeholder="main"
+                  value={draft.branch}
+                  onChange={(event) => {
+                    const value = event.currentTarget.value
+                    setDraft((state) => ({ ...state, branch: value }))
+                  }}
+                />
+              </TextField>
+              <TextField className="grid gap-1" variant="secondary">
+                <Label>Chord path (optional)</Label>
+                <Input
+                  placeholder="leave blank for repo root"
+                  value={draft.chordsPath}
+                  onChange={(event) => {
+                    const value = event.currentTarget.value
+                    setDraft((state) => ({ ...state, chordsPath: value }))
+                  }}
+                />
+              </TextField>
+              <TextField className="grid gap-1" variant="secondary">
+                <Label>GitHub token</Label>
+                <Input
+                  placeholder="read-only token"
+                  type="password"
+                  value={draft.token}
+                  onChange={(event) => {
+                    const value = event.currentTarget.value
+                    setDraft((state) => ({ ...state, token: value }))
+                  }}
+                />
+              </TextField>
+            </div>
 
-                <TextField className="grid gap-1" variant="secondary">
-                  <Label>Browser storage</Label>
-                  <TextArea
-                    readOnly
-                    value="Songs are saved in IndexedDB so the app can stay readable offline after you pull changes."
-                  />
-                </TextField>
-
-                <div className="flex flex-wrap gap-2">
-                  <Button type="submit" variant="outline" isDisabled={pulling} className="gap-1.5">
-                    <UploadCloud size={16} />
-                    Save settings
-                  </Button>
-                  <Button
-                    aria-label="Sync repository"
-                    isDisabled={!settings}
-                    variant="outline"
-                    onPress={() => {
-                      void handlePull()
-                    }}
-                  >
-                    <RefreshCw size={16} />
-                  </Button>
-                  <Button variant="danger" onPress={() => void handleResetSettings()}>
-                    <X size={16} />
-                    Clear settings
-                  </Button>
-                </div>
-              </form>
-            </Card.Content>
-          </Card>
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" variant="outline" isDisabled={pulling} className="gap-1.5">
+                <UploadCloud size={16} />
+                Save settings
+              </Button>
+              <Button
+                aria-label="Sync repository"
+                isDisabled={!settings}
+                variant="outline"
+                onPress={() => {
+                  void handlePull()
+                }}
+              >
+                <RefreshCw size={16} />
+              </Button>
+              <Button variant="danger" onPress={() => void handleResetSettings()}>
+                <X size={16} />
+                Clear settings
+              </Button>
+            </div>
+          </form>
         </main>
       ) : route.mode === 'home' || route.mode === 'folder' ? (
         <main className="grid gap-3">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              {route.mode === 'folder' ? (
-                <Button
-                  aria-label="Go to parent folder"
-                  variant="outline"
-                  onPress={() => {
-                    const parentFolder = currentFolder.includes('/') ? currentFolder.split('/').slice(0, -1).join('/') : ''
-                    const nextRoute: AppRoute = parentFolder ? { mode: 'folder', folder: parentFolder } : { mode: 'home' }
-                    setRoute(nextRoute)
-                    navigate(nextRoute)
-                  }}
-                >
-                  <ChevronLeft size={16} />
-                </Button>
-              ) : null}
-              <h2 className="m-0 text-xl font-semibold">{route.mode === 'folder' ? folderName(currentFolder) : 'All songs'}</h2>
+              <h4 className="m-0 text-xl font-semibold">{route.mode === 'folder' ? folderName(currentFolder) : 'All songs'}</h4>
             </div>
-
-            <Chip variant="secondary">Songs {visibleSongCount}</Chip>
           </div>
 
-          <Card className="border border-[var(--line)] bg-[var(--panel)]">
-            {!normalizedQuery && (
-              <>
-                <Card.Header className="flex items-center justify-between gap-2">
-                  <div>
-                    <p className="m-0 text-sm text-[var(--muted)]">{currentFolder || 'Repository root'}</p>
-                  </div>
-                </Card.Header>
-                <Separator />
-              </>
-            )}
-            <Card.Content className="grid gap-1 p-1">
-              {visibleRows.length ? (
-                visibleRows.map((row) => {
-                  if (row.kind === 'folder') {
-                    const nextRoute: AppRoute = { mode: 'folder', folder: row.folder }
+          <hr />
 
-                    return (
-                      <a
-                        key={row.folder}
-                        className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-transparent px-2 py-1.5 text-left text-sm text-[var(--text)] transition-colors hover:border-[var(--line)] hover:bg-[var(--panel-soft)] focus-visible:border-[var(--accent)] focus-visible:bg-[var(--panel-soft)] focus-visible:outline-none"
-                        href={routeHash(nextRoute)}
-                        onClick={() => {
-                          setRoute(nextRoute)
-                        }}
-                      >
-                        <span className="inline-flex items-center gap-2 text-[var(--muted)]">
-                          <FolderOpen size={16} />
-                        </span>
-                        <span className="min-w-0 truncate font-medium">{folderName(row.folder)}</span>
-                      </a>
-                    )
-                  }
+          {visibleRows.length ? (
+            visibleRows.map((row) => {
+              if (row.kind === 'folder') {
+                const nextRoute: AppRoute = { mode: 'folder', folder: row.folder }
 
-                  const nextRoute: AppRoute = { mode: 'song', folder: row.folder, slug: row.slug }
+                return (
+                  <a
+                    key={row.folder}
+                    className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-transparent px-2 py-1.5 text-left text-sm text-[var(--text)] transition-colors hover:border-[var(--border)] hover: focus-visible:border-[var(--accent)] focus-visible: focus-visible:outline-none"
+                    href={routeHash(nextRoute)}
+                    onClick={() => {
+                      setRoute(nextRoute)
+                    }}
+                  >
+                    <span className="inline-flex items-center gap-2 text-[var(--muted)]">
+                      <FolderOpen size={16} />
+                    </span>
+                    <span className="min-w-0 truncate font-medium">{folderName(row.folder)}</span>
+                  </a>
+                )
+              }
 
-                  return (
-                    <a
-                      key={row.song.path}
-                      className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-transparent px-2 py-1.5 text-left text-sm text-[var(--text)] transition-colors hover:border-[var(--line)] hover:bg-[var(--panel-soft)] focus-visible:border-[var(--accent)] focus-visible:bg-[var(--panel-soft)] focus-visible:outline-none"
-                      href={routeHash(nextRoute)}
-                      onClick={() => {
-                        setRoute(nextRoute)
-                      }}
-                    >
-                      <span className="inline-flex items-center gap-2 text-[var(--muted)]">
-                        <Music2 size={16} />
-                      </span>
-                      <span className="min-w-0">
-                        <strong className="block truncate">{row.song.title}</strong>
-                        {row.song.artist ? <span className="block truncate text-xs text-[var(--muted)]">{row.song.artist}</span> : null}
-                      </span>
-                    </a>
-                  )
-                })
-              ) : (
-                <p className="px-3 py-4 text-sm text-[var(--muted)]">No folders or songs found.</p>
-              )}
-            </Card.Content>
-          </Card>
+              const nextRoute: AppRoute = { mode: 'song', folder: row.folder, slug: row.slug }
+
+              return (
+                <a
+                  key={row.song.path}
+                  className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-transparent px-2 py-1.5 text-left text-sm text-[var(--text)] transition-colors hover:border-[var(--border)] hover: focus-visible:border-[var(--accent)] focus-visible: focus-visible:outline-none"
+                  href={routeHash(nextRoute)}
+                  onClick={() => {
+                    setRoute(nextRoute)
+                  }}
+                >
+                  <span className="inline-flex items-center gap-2 text-[var(--muted)]">
+                    <Music2 size={16} />
+                  </span>
+                  <span className="min-w-0">
+                    <strong className="block truncate">{row.song.title}</strong>
+                    {row.song.artist ? <span className="block truncate text-xs text-[var(--muted)]">{row.song.artist}</span> : null}
+                  </span>
+                </a>
+              )
+            })
+          ) : (
+            <p className="px-3 py-4 text-sm text-[var(--muted)]">No folders or songs found.</p>
+          )}
         </main>
       ) : (
         <main className="grid gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              onPress={() => {
-                const nextRoute: AppRoute = { mode: 'folder', folder: route.folder }
-                setRoute(nextRoute)
-                navigate(nextRoute)
-              }}
-            >
-              <ChevronLeft size={16} />
-              {route.folder || 'Folders'}
-            </Button>
-          </div>
-
           {view ? (
             <article className="song-sheet rounded-xl py-3" dir={view.format === 'chords' ? 'ltr' : view.rtl ? 'rtl' : 'ltr'}>
-              <hr className="mb-3 border-[var(--line)]" />
+              <hr className="mb-3 border-[var(--border)]" />
               <div className="no-print flex flex-wrap items-center gap-1.5">
                 <Button aria-label="Transpose up" variant="outline" onPress={() => setTranspose((value) => value + 1)}>
                   <Plus size={16} />
@@ -927,7 +901,6 @@ export function SongbookApp() {
 
 
               <div className="mb-3 grid gap-1">
-                {view.capo ? <p className="m-0 text-sm text-[var(--muted)]">Capo {view.capo}</p> : null}
                 {view.fingerings?.length ? (
                   <div className="flex flex-wrap gap-2">
                     {view.fingerings.map((definition) => (
@@ -999,7 +972,9 @@ export function SongbookApp() {
                 <div className="mt-3 grid gap-3" dir="ltr">
                   {view.sections.map((section, sectionIndex) => (
                     <section key={`${section.label}-${sectionIndex}`}>
-                      <h3 className="mb-1 text-sm p-1 font-bold uppercase tracking-[0.08em] bg-[var(--song-section-bg)]/40 text-[var(--song-section)]" dir={textDirection(section.label)}>{section.label}</h3>
+                      {section.label.toLowerCase() !== 'song' ? (
+                        <h3 className="mb-1 text-sm p-1 font-bold uppercase tracking-[0.08em] bg-[var(--song-section-bg)]/40 text-[var(--song-section)]" dir={textDirection(section.label)}>{section.label}</h3>
+                      ) : null}
                       <div className="grid gap-2">
                         {section.lines.map((line, index) => (
                           (() => {

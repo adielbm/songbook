@@ -18,12 +18,9 @@ body {
 :root {
   color-scheme: light;
   --bg: var(--flexoki-paper);
-  --panel: var(--flexoki-paper);
-  --panel-soft: var(--flexoki-100);
-  --line: var(--flexoki-300);
-  --border: var(--flexoki-400);
+  --border: var(--flexoki-600);
   --text: var(--flexoki-black);
-  --muted: var(--flexoki-400);
+  --muted: var(--flexoki-500);
   --accent-blue: var(--flexoki-blue-600);
   --accent-pink: var(--flexoki-magenta-500);
   --accent-green: var(--flexoki-cyan-400);
@@ -40,9 +37,6 @@ body {
 .dark {
   color-scheme: dark;
   --bg: var(--flexoki-black);
-  --panel: var(--flexoki-900);
-  --panel-soft: var(--flexoki-850);
-  --line: var(--flexoki-700);
   --border: var(--flexoki-500);
   --text: var(--flexoki-paper);
   --muted: var(--flexoki-300);
