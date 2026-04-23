@@ -70,6 +70,17 @@ interface GithubRepositoryConfig {
 
 const CHORD_TAGS = new Set(['bridge', 'chorus', 'intro', 'outro', 'prechorus', 'pre-chorus', 'verse', 'tag'])
 const ZW_REGEX = /[\u200B-\u200F\uFEFF]/g
+const CUSTOM_METADATA_ALIASES = new Map<string, 'title' | 'artist' | 'capo' | 'comment'>([
+  ['title', 'title'],
+  ['כותרת', 'title'],
+  ['artist', 'artist'],
+  ['אמן', 'artist'],
+  ['capo', 'capo'],
+  ['קאפו', 'capo'],
+  ['comment', 'comment'],
+  ['comments', 'comment'],
+  ['הערות', 'comment'],
+])
 const HIDDEN_CHOPRO_DIRECTIVES = new Set([
   'album',
   'artist',
@@ -150,12 +161,31 @@ function normalizeSingleValue(value: string | string[] | null): string | null {
   return value
 }
 
+function normalizeCustomMetadataKey(key: string): 'title' | 'artist' | 'capo' | 'comment' | null {
+  const normalized = cleanText(key).toLowerCase()
+  return CUSTOM_METADATA_ALIASES.get(normalized) ?? null
+}
+
+function artistFromPath(path: string): string | null {
+  const normalizedPath = String(path).replace(/\\/g, '/').replace(/^\/+|\/+$/g, '')
+  const segments = normalizedPath.split('/').filter(Boolean)
+
+  if (segments.length <= 1) {
+    return null
+  }
+
+  const parent = segments[segments.length - 2] ?? ''
+  const cleaned = cleanText(parent)
+
+  return cleaned || null
+}
+
 function hasHebrew(text: string): boolean {
   return /[\u0590-\u05FF]/.test(text)
 }
 
 function isLikelyChordToken(token: string): boolean {
-  return /^[A-G](?:#|b)?(?:m|maj|min|sus|dim|aug|add|no|M|[0-9]|[#b]|\(|\)|\+|-|\/)*$/i.test(token)
+  return /^[A-G](?:#|b)?(?:m|maj|min|sus|dim|aug|add|no|M|[0-9]|[#b]|\(|\)|\+|-)*(?:\/[A-G](?:#|b)?)?$/i.test(token)
 }
 
 function transposeChordToken(token: string, delta: number): string {
@@ -368,7 +398,17 @@ function transposeChordText(text: string, delta: number): string {
     return text
   }
 
-  return text
+  // First transpose inline [Chord] markers embedded in lyric text.
+  const withInlineChords = text.replace(/\[([^\]]+)\]/g, (fullMatch, rawChord: string) => {
+    const chord = cleanText(rawChord)
+    if (!chord) {
+      return fullMatch
+    }
+
+    return `[${transposeChordToken(chord, delta)}]`
+  })
+
+  return withInlineChords
     .split(/(\|)/)
     .map((segment) => {
       if (segment === '|') {
@@ -376,6 +416,10 @@ function transposeChordText(text: string, delta: number): string {
       }
 
       return segment.replace(/\S+/g, (token) => {
+        if (token.includes('[') && token.includes(']')) {
+          return token
+        }
+
         const stripped = token.match(/^([\[({<"']*)(.*?)([\])}>.,;:!?"']*)$/)
 
         if (!stripped) {
@@ -421,23 +465,25 @@ function parseCustomMetadata(raw: string) {
     const tagMatch = trimmed.match(/^\{([^}:]+)(?::\s*([^}]*))?\}\s*(?:#.*)?$/)
 
     if (tagMatch) {
-      const key = tagMatch[1].trim()
-      const value = tagMatch[2]?.trim() ?? null
+      const key = cleanText(tagMatch[1] ?? '')
+      const value = cleanText(tagMatch[2] ?? '') || null
       const normalizedKey = key.toLowerCase()
+      const metadataKey = normalizeCustomMetadataKey(key)
 
-      if (!value && CHORD_TAGS.has(normalizedKey)) {
-        currentSection = { label: formatSectionLabel(normalizedKey), lines: [] }
+      if (!value && key) {
+        const sectionLabel = CHORD_TAGS.has(normalizedKey) ? formatSectionLabel(normalizedKey) : key
+        currentSection = { label: sectionLabel, lines: [] }
         sections.push(currentSection)
         continue
       }
 
-      if (value && /^[xX0-9\-]+$/.test(value)) {
+      if (value && /^[xX0-9\-]+$/.test(value) && isLikelyChordToken(key)) {
         fingerings.push({ chord: key, fingering: value })
         continue
       }
 
       if (value) {
-        metadata.set(normalizedKey, value)
+        metadata.set(metadataKey ?? normalizedKey, value)
         continue
       }
     }
@@ -489,12 +535,13 @@ function summarizeChoproSong(raw: string, fileName: string) {
 function buildEntry(fileName: string, raw: string, source: SongSource, path: string): SongEntry {
   const format: SongFormat = fileName.endsWith('.chopro') ? 'chopro' : 'chords'
   const summary = format === 'chopro' ? summarizeChoproSong(raw, fileName) : summarizeCustomSong(raw, fileName)
+  const fallbackArtist = format === 'chords' ? artistFromPath(path) : null
 
   return {
     path,
     name: fileName,
     title: summary.title,
-    artist: summary.artist,
+    artist: summary.artist ?? fallbackArtist,
     format,
     raw,
     source,
@@ -649,7 +696,7 @@ function renderCustomSong(entry: SongEntry, transpose: number): SongView {
 
   return {
     title: metadata.get('title')?.trim() || entry.title,
-    artist: metadata.get('artist')?.trim() || null,
+    artist: metadata.get('artist')?.trim() || entry.artist,
     capo: metadata.get('capo') ?? null,
     comment: metadata.get('comment') ?? null,
     rtl: entry.rtl,

@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Miriam+Libre:wght@400;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap');
+@import './flexoki.css';
 @import "tailwindcss";
 @import "@heroui/styles";
 
@@ -16,35 +17,51 @@ body {
 
 :root {
   color-scheme: light;
-  --bg: #f3f6f2;
-  --panel: #fcfffb;
-  --panel-soft: #e9efe7;
-  --line: #beccbe;
-  --text: #162015;
-  --muted: #42cc64;
-  --accent: #1f7a47;
+  --bg: var(--flexoki-paper);
+  --panel: var(--flexoki-paper);
+  --panel-soft: var(--flexoki-100);
+  --line: var(--flexoki-300);
+  --border: var(--flexoki-400);
+  --text: var(--flexoki-black);
+  --muted: var(--flexoki-400);
+  --accent-blue: var(--flexoki-blue-600);
+  --accent-pink: var(--flexoki-magenta-500);
+  --accent-green: var(--flexoki-cyan-400);
+  --accent: var(--flexoki-blue-300);
   --background: var(--bg);
   --foreground: var(--text);
+  --chord: var(--flexoki-magenta-400);
+  --chord-delimiter: var(--flexoki-black);
+  --song-section: var(--flexoki-black);
+  --song-section-bg: var(--flexoki-magenta-200);
 }
 
 :root.dark,
 .dark {
   color-scheme: dark;
-  --bg: #101514;
-  --panel: #161b1a;
-  --panel-soft: #1f2523;
-  --line: #33403b;
-  --text: #e8f0ea;
-  --muted: #35af76;
-  --accent: #5dd49a;
+  --bg: var(--flexoki-black);
+  --panel: var(--flexoki-900);
+  --panel-soft: var(--flexoki-850);
+  --line: var(--flexoki-700);
+  --border: var(--flexoki-500);
+  --text: var(--flexoki-paper);
+  --muted: var(--flexoki-300);
+  --accent-blue: var(--flexoki-blue-200);
+  --accent-pink: var(--flexoki-magenta-300);
+  --accent-green: var(--flexoki-cyan-300);
+  --accent: var(--flexoki-blue-200);
   --background: var(--bg);
   --foreground: var(--text);
+  --chord: var(--flexoki-magenta-300);
+  --chord-delimiter: var(--flexoki-white);
+  --song-section: var(--flexoki-white);
+  --song-section-bg: var(--flexoki-magenta-300);
 }
 
 html,
 body {
   min-height: 100%;
-  background: radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 14%, transparent) 0, var(--bg) 42%, color-mix(in srgb, var(--accent) 6%, var(--bg)) 100%);
+  background: var(--bg);
   color: var(--text);
 }
 
@@ -58,20 +75,15 @@ body {
 }
 
 .chopro-sheet {
-  margin-top: 10px;
-  line-height: 1.45;
+  line-height: 1;
 }
 
 .chopro-sheet .section {
   margin: 0.85rem 0 0.45rem;
-  color: var(--accent);
+  color: var(--accent-pink);
   font-size: 1.08em;
   background: var(--panel-soft);
   padding: 0 1em;
-}
-
-.chopro-sheet .line-block {
-  margin: 0.35rem 0 0.7rem;
 }
 
 .chopro-sheet .line-block.empty {
@@ -105,12 +117,13 @@ body {
   unicode-bidi: plaintext;
   text-align: right;
   font-size: 0.98em;
-  line-height: 1.45;
+  line-height: 1;
+  color: var(--text);
 }
 
 .chopro-sheet .phrase-chord {
   min-height: 1.2rem;
-  color: var(--accent);
+  color: var(--chord);
   font-weight: 700;
   font-family: 'Roboto Mono', monospace;
 }
@@ -127,8 +140,8 @@ body {
 @media print {
   html,
   body {
-    background: #fff !important;
-    color: #000 !important;
+    background: var(--flexoki-paper) !important;
+    color: var(--flexoki-black) !important;
   }
 
   .no-print {

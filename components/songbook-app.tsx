@@ -29,6 +29,7 @@ import {
   SunMedium,
   UploadCloud,
   X,
+  Home,
 } from 'lucide-react'
 import { pullSongsFromGithub } from '@/lib/github'
 import { buildSongView, fileStem, type SongEntry, type SongView } from '@/lib/songbook-core'
@@ -36,6 +37,7 @@ import { sampleSongs } from '@/lib/samples'
 import {
   clearSettings,
   loadCachedSongs,
+  loadCachedSongsWithShas,
   loadSettings,
   loadSyncMeta,
   replaceCachedSongs,
@@ -52,6 +54,11 @@ const DEFAULT_FONT_SIZE = 18
 type LineToken = {
   text: string
   isChord: boolean
+}
+
+type InlineChordToken = {
+  chord?: string
+  lyric: string
 }
 
 type RouteSong = {
@@ -83,15 +90,15 @@ type SongRouteEntry = {
 
 type LibraryRow =
   | {
-      kind: 'folder'
-      folder: string
-    }
+    kind: 'folder'
+    folder: string
+  }
   | {
-      kind: 'song'
-      folder: string
-      slug: string
-      song: SongEntry
-    }
+    kind: 'song'
+    folder: string
+    slug: string
+    song: SongEntry
+  }
 
 function tokenizeCustomLine(line: string): LineToken[] {
   return line
@@ -99,8 +106,66 @@ function tokenizeCustomLine(line: string): LineToken[] {
     .filter(Boolean)
     .map((part) => ({
       text: part,
-      isChord: /^(?:[A-G](?:#|b)?(?:m|maj|min|sus|dim|aug|add|no|M|[0-9]|[#b]|\(|\)|\+|-|\/)*)$/i.test(part),
+      isChord: /^[A-G](?:#|b)?(?:m|maj|min|sus|dim|aug|add|no|M|[0-9]|[#b]|\(|\)|\+|-)*(?:\/[A-G](?:#|b)?)?$/i.test(part),
     }))
+}
+
+function parseInlineChordLine(line: string): InlineChordToken[] {
+  const pattern = /\[([^\]]+)\]/g
+  let cursor = 0
+  let lyrics = ''
+  const chords: { chord: string; pos: number }[] = []
+
+  for (const match of line.matchAll(pattern)) {
+    const start = match.index ?? 0
+    const end = start + match[0].length
+    const before = line.slice(cursor, start)
+
+    if (before) {
+      lyrics += before
+    }
+
+    const chord = (match[1] ?? '').trim()
+    if (chord) {
+      chords.push({ chord, pos: lyrics.length })
+    }
+
+    cursor = end
+  }
+
+  const tail = line.slice(cursor)
+  if (tail) {
+    lyrics += tail
+  }
+
+  if (!chords.length) {
+    return []
+  }
+
+  const tokens: InlineChordToken[] = []
+
+  for (let index = 0; index < chords.length; index += 1) {
+    const current = chords[index]
+    const next = chords[index + 1]
+
+    if (index === 0) {
+      const leading = lyrics.slice(0, current.pos)
+      if (leading.trim()) {
+        tokens.push({ lyric: leading })
+      }
+    }
+
+    tokens.push({
+      chord: current.chord,
+      lyric: lyrics.slice(current.pos, next ? next.pos : lyrics.length),
+    })
+  }
+
+  return tokens
+}
+
+function textDirection(value: string): 'rtl' | 'ltr' {
+  return /[\u0590-\u05FF]/.test(value) ? 'rtl' : 'ltr'
 }
 
 function slugify(value: string): string {
@@ -271,7 +336,7 @@ function ThemeToggle() {
 
   if (!mounted) {
     return (
-      <Button aria-label="Toggle theme" variant="secondary" isDisabled>
+      <Button aria-label="Toggle theme" variant="outline" isDisabled>
         <SunMedium size={16} />
       </Button>
     )
@@ -283,7 +348,7 @@ function ThemeToggle() {
   return (
     <Button
       aria-label="Toggle theme"
-      variant={isDark ? 'secondary' : 'primary'}
+      variant="outline"
       onPress={() => setTheme(isDark ? 'light' : 'dark')}
     >
       {isDark ? <MoonStar size={16} /> : <SunMedium size={16} />}
@@ -418,15 +483,17 @@ export function SongbookApp() {
     const key = repoKey(settings)
 
     try {
-      const pulledSongs = await pullSongsFromGithub(settings, (done, total) => {
+      const cachedByPath = await loadCachedSongsWithShas(key)
+      const pullResult = await pullSongsFromGithub(settings, cachedByPath, (done, total) => {
         setPullProgress({ done, total })
       })
+      const pulledSongs = pullResult.songs
 
       if (!pulledSongs.length) {
         throw new Error('No .chopro or .chords files were found in the configured path.')
       }
 
-      await replaceCachedSongs(key, pulledSongs)
+      await replaceCachedSongs(key, pulledSongs, pullResult.pathShas)
       await saveSyncMeta({
         key,
         lastSyncedAt: Date.now(),
@@ -495,9 +562,9 @@ export function SongbookApp() {
       }
     }
 
-  const folderRows = Array.from(childFolders)
-    .sort((left, right) => left.localeCompare(right))
-    .map((folder) => ({ kind: 'folder' as const, folder }))
+    const folderRows = Array.from(childFolders)
+      .sort((left, right) => left.localeCompare(right))
+      .map((folder) => ({ kind: 'folder' as const, folder }))
 
     const songRows = routeSongs
       .filter((entry) => (normalizedQuery === '' ? entry.folder === currentFolder : true))
@@ -565,23 +632,35 @@ export function SongbookApp() {
 
   return (
     <div className="mx-auto min-h-screen max-w-6xl px-1.5 py-2 md:px-3" style={{ ['--song-font-size' as string]: `${fontSize}px` }}>
-      <header className="no-print z-20 mb-3 rounded-[1.2rem] border border-[var(--line)] bg-[color-mix(in_srgb,var(--panel)_90%,transparent)] p-1.5 shadow-[0_12px_30px_rgba(0,0,0,0.06)] backdrop-blur supports-[backdrop-filter]:bg-[color-mix(in_srgb,var(--panel)_84%,transparent)]">
+      {/* <div className="text-center text-[7px] text-[var(--muted)]">{syncMetaText}</div> */}
+      <header className="no-print z-20 mb-3 rounded-[1.2rem] border border-[var(--line)] bg-[var(--panel)] p-1.5">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-[0.65rem] text-[var(--muted)]">
-            <span>Sync: {syncMetaText}</span>
-            {pulling ? (
-              <span className="inline-flex items-center gap-2">
-                <Spinner size="sm" />
-                {pullProgress.done}/{pullProgress.total || '?'}
-              </span>
-            ) : null}
-          </div>
+          <Button
+            aria-label="Home"
+            variant="outline"
+            onPress={() => {
+              const nextRoute: AppRoute = { mode: 'home' }
+              setRoute(nextRoute)
+              navigate(nextRoute)
+            }}
+          >
+            <Home size={16} />
+          </Button>
+
 
           <div className="flex items-center gap-1.5">
-            <ThemeToggle />
+            <div className="flex items-center gap-2 text-[0.65rem] text-[var(--muted)]">
+              {pulling ? (
+                <span className="inline-flex items-center gap-2">
+                  <Spinner size="sm" />
+                  {pullProgress.done}/{pullProgress.total || '?'}
+                </span>
+              ) : null}
+            </div>
+
             <Button
               aria-label="Sync repository"
-              variant="secondary"
+              variant="outline"
               onPress={() => {
                 if (!settings) {
                   navigate({ mode: 'settings' })
@@ -596,7 +675,7 @@ export function SongbookApp() {
             </Button>
             <Button
               aria-label="Open settings"
-              variant={route.mode === 'settings' ? 'primary' : 'outline'}
+              variant="outline"
               onPress={() => {
                 const nextRoute: AppRoute = { mode: 'settings' }
                 setRoute(nextRoute)
@@ -605,12 +684,13 @@ export function SongbookApp() {
             >
               <Settings2 size={16} />
             </Button>
+            <ThemeToggle />
           </div>
         </div>
 
         <div className="grid gap-2">
           <SearchField className="w-full" fullWidth onChange={setQuery} value={query} variant="secondary">
-            <SearchField.Group className="h-9 rounded-full border border-[var(--line)] bg-[var(--panel)] px-2 shadow-[0_6px_16px_rgba(0,0,0,0.05)] transition-colors data-[focus-within=true]:border-[var(--accent)] data-[focus-within=true]:bg-[var(--panel)]">
+            <SearchField.Group className="h-9 rounded-full border border-[var(--line)] bg-[var(--panel)] px-2 transition-colors data-[focus-within=true]:border-[var(--accent)] data-[focus-within=true]:bg-[var(--panel)]">
               <SearchField.SearchIcon className="pointer-events-none shrink-0 text-[var(--muted)]" />
               <SearchField.Input aria-label="Search songs or folders" className="text-sm placeholder:text-[var(--muted)]" placeholder="Search" />
               <SearchField.ClearButton className="shrink-0 rounded-full bg-[var(--panel-soft)] p-1 text-[var(--muted)]" />
@@ -628,34 +708,7 @@ export function SongbookApp() {
 
       {route.mode === 'settings' ? (
         <main className="grid gap-3">
-          <Card className="overflow-hidden border border-[var(--line)] bg-[var(--panel)] shadow-[0_16px_40px_rgba(0,0,0,0.08)]">
-            <Card.Header className="bg-[linear-gradient(135deg,color-mix(in_srgb,var(--accent)_18%,transparent),transparent)]">
-              <div className="flex w-full items-start justify-between gap-3">
-                <div className="max-w-2xl">
-                  <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--panel-soft)] px-3 py-1 text-xs font-medium text-[var(--muted)]">
-                    <Settings2 size={12} />
-                    Connection settings
-                  </div>
-                  <h1 className="m-0 text-2xl font-semibold">Connect your private repository</h1>
-                  <p className="m-0 mt-1 text-sm text-[var(--muted)]">
-                    Save an owner/repo, branch, path, and read-only token. The app keeps a local browser cache for offline reading.
-                  </p>
-                </div>
-
-                <Button
-                  aria-label="Back"
-                  variant="primary"
-                  onPress={() => {
-                    const nextRoute: AppRoute = selectedSongEntry ? { mode: 'song', folder: selectedSongEntry.folder, slug: selectedSongEntry.slug } : { mode: 'home' }
-                    setRoute(nextRoute)
-                    navigate(nextRoute)
-                  }}
-                >
-                  <ChevronLeft size={16} />
-                </Button>
-              </div>
-            </Card.Header>
-            <Separator />
+          <Card className="overflow-hidden border border-[var(--line)] bg-[var(--panel)]">
             <Card.Content>
               <form className="grid gap-4" onSubmit={handleSaveSettings}>
                 <div className="grid gap-3 md:grid-cols-2">
@@ -715,14 +768,14 @@ export function SongbookApp() {
                 </TextField>
 
                 <div className="flex flex-wrap gap-2">
-                  <Button type="submit" variant="primary">
+                  <Button type="submit" variant="outline" isDisabled={pulling} className="gap-1.5">
                     <UploadCloud size={16} />
                     Save settings
                   </Button>
                   <Button
                     aria-label="Sync repository"
                     isDisabled={!settings}
-                    variant="primary"
+                    variant="outline"
                     onPress={() => {
                       void handlePull()
                     }}
@@ -745,7 +798,7 @@ export function SongbookApp() {
               {route.mode === 'folder' ? (
                 <Button
                   aria-label="Go to parent folder"
-                  variant="secondary"
+                  variant="outline"
                   onPress={() => {
                     const parentFolder = currentFolder.includes('/') ? currentFolder.split('/').slice(0, -1).join('/') : ''
                     const nextRoute: AppRoute = parentFolder ? { mode: 'folder', folder: parentFolder } : { mode: 'home' }
@@ -827,7 +880,7 @@ export function SongbookApp() {
         <main className="grid gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <Button
-              variant="secondary"
+              variant="outline"
               onPress={() => {
                 const nextRoute: AppRoute = { mode: 'folder', folder: route.folder }
                 setRoute(nextRoute)
@@ -840,38 +893,39 @@ export function SongbookApp() {
           </div>
 
           {view ? (
-            <div className="no-print flex flex-wrap items-center gap-1.5">
-              <Button aria-label="Reset transpose" variant={transpose === 0 ? 'outline' : 'primary'} onPress={() => setTranspose(0)}>
-                <RotateCcw size={16} />
-              </Button>
-              <span
-                className={[
-                  'inline-flex h-9 min-w-9 items-center justify-center rounded-full border px-2 text-sm font-semibold tabular-nums',
-                  transpose === 0
-                    ? 'border-[var(--line)] bg-[var(--panel)] text-[var(--muted)]'
-                    : 'border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,var(--panel))] text-[var(--accent)]',
-                ].join(' ')}
-                aria-label={`Transpose ${transpose}`}
-              >
-                {transpose > 0 ? `+${transpose}` : transpose}
-              </span>
-              <Button aria-label="Transpose up" variant="outline" onPress={() => setTranspose((value) => value + 1)}>
-                <Plus size={16} />
-              </Button>
-              <Button aria-label="Transpose down" variant="outline" onPress={() => setTranspose((value) => value - 1)}>
-                <Minus size={16} />
-              </Button>
-              <Button aria-label="Decrease text size" variant="outline" onPress={() => setFontSize((size) => Math.max(MIN_FONT_SIZE, size - 1))}>
-                <AArrowDown size={16} />
-              </Button>
-              <Button aria-label="Increase text size" variant="outline" onPress={() => setFontSize((size) => Math.min(MAX_FONT_SIZE, size + 1))}>
-                <AArrowUp size={16} />
-              </Button>
-            </div>
-          ) : null}
+            <article className="song-sheet rounded-xl py-3" dir={view.format === 'chords' ? 'ltr' : view.rtl ? 'rtl' : 'ltr'}>
+              <hr className="mb-3 border-[var(--line)]" />
+              <div className="no-print flex flex-wrap items-center gap-1.5">
+                <Button aria-label="Transpose up" variant="outline" onPress={() => setTranspose((value) => value + 1)}>
+                  <Plus size={16} />
+                </Button>
+                <Button aria-label="Reset transpose" variant={'outline'} onPress={() => setTranspose(0)}>
+                  <span
+                    className={[
+                      'inline-flex items-center justify-center rounded-full font-semibold tabular-nums',
+                      transpose === 0
+                        ? 'text-[var(--muted)]'
+                        : 'text-[var(--chord)]',
+                    ].join(' ')}
+                    aria-label={`Transpose ${transpose}`}
+                  >
+                    {transpose > 0 ? `+${transpose}` : transpose}
+                  </span>
+                </Button>
+                <Button aria-label="Transpose down" variant="outline" onPress={() => setTranspose((value) => value - 1)}>
+                  <Minus size={16} />
+                </Button>
+                <div className="ml-auto flex items-center gap-1.5">
+                  <Button aria-label="Decrease text size" variant="outline" onPress={() => setFontSize((size) => Math.max(MIN_FONT_SIZE, size - 1))}>
+                    <AArrowDown size={16} />
+                  </Button>
+                  <Button aria-label="Increase text size" variant="outline" onPress={() => setFontSize((size) => Math.min(MAX_FONT_SIZE, size + 1))}>
+                    <AArrowUp size={16} />
+                  </Button>
+                </div>
+              </div>
 
-          {view ? (
-            <article className="song-sheet rounded-xl border border-[var(--line)] bg-[var(--panel)] p-3 md:p-4" dir={view.format === 'chords' ? 'ltr' : view.rtl ? 'rtl' : 'ltr'}>
+
               <div className="mb-3 grid gap-1">
                 {view.capo ? <p className="m-0 text-sm text-[var(--muted)]">Capo {view.capo}</p> : null}
                 {view.fingerings?.length ? (
@@ -886,8 +940,9 @@ export function SongbookApp() {
               </div>
 
               <div className="mb-2">
-                <h1 className="m-0 text-2xl font-semibold">{view.title}</h1>
-                {view.artist ? <p className="m-0 text-sm text-[var(--muted)]">{view.artist}</p> : null}
+                <h1 className="m-0 text-2xl font-semibold" dir={textDirection(view.title)}>{view.title}</h1>
+                {view.artist ? <p className="m-0 text-sm text-[var(--muted)]" dir={textDirection(view.artist)}>{view.artist}</p> : null}
+                {view.comment ? <p className="m-0 text-sm text-[var(--muted)]" dir={textDirection(view.comment)}>{view.comment}</p> : null}
               </div>
 
               {view.choproBlocks?.length ? (
@@ -895,7 +950,7 @@ export function SongbookApp() {
                   {view.choproBlocks.map((block, blockIndex) => {
                     if (block.type === 'section' && block.text) {
                       return (
-                        <h3 key={`chopro-block-${blockIndex}`} className="section">
+                        <h3 key={`chopro-block-${blockIndex}`} className="section" dir={textDirection(block.text)}>
                           {block.text}
                         </h3>
                       )
@@ -942,21 +997,74 @@ export function SongbookApp() {
 
               {view.sections ? (
                 <div className="mt-3 grid gap-3" dir="ltr">
-                  {view.sections.map((section) => (
-                    <section key={section.label}>
-                      <h3 className="mb-1 text-xs uppercase tracking-[0.08em] text-[var(--accent)]">{section.label}</h3>
-                      <div className="grid gap-1">
+                  {view.sections.map((section, sectionIndex) => (
+                    <section key={`${section.label}-${sectionIndex}`}>
+                      <h3 className="mb-1 text-sm p-1 font-bold uppercase tracking-[0.08em] bg-[var(--song-section-bg)]/40 text-[var(--song-section)]" dir={textDirection(section.label)}>{section.label}</h3>
+                      <div className="grid gap-2">
                         {section.lines.map((line, index) => (
-                          <p key={`${section.label}-${index}`} className="m-0 whitespace-pre-wrap leading-6">
-                            {tokenizeCustomLine(line).map((token, tokenIndex) => (
-                              <span
-                                key={`${section.label}-${index}-${tokenIndex}`}
-                                className={token.isChord ? 'font-mono text-[var(--text)]' : 'text-[var(--muted)]'}
-                              >
-                                {token.text}
-                              </span>
-                            ))}
-                          </p>
+                          (() => {
+                            const inlineTokens = parseInlineChordLine(line)
+
+                            if (inlineTokens.length) {
+                              return (
+                                <div key={`${section.label}-${sectionIndex}-${index}`} className="chopro-sheet" dir={view.rtl ? 'rtl' : 'ltr'}>
+                                  <div className="line-block">
+                                    <div className="phrase-row">
+                                      {inlineTokens.map((token, tokenIndex) => (
+                                        <div key={`${section.label}-${sectionIndex}-${index}-${tokenIndex}`} className="phrase-block">
+                                          {token.chord ? (
+                                            <div className="phrase-chord">{token.chord}</div>
+                                          ) : (
+                                            <div className="phrase-chord empty">&nbsp;</div>
+                                          )}
+
+                                          {token.lyric ? (
+                                            <div className="phrase-lyric">{token.lyric}</div>
+                                          ) : (
+                                            <div className="phrase-lyric empty">&nbsp;</div>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            }
+
+                            if (line.includes('|')) {
+                              return (
+                                <p key={`${section.label}-${sectionIndex}-${index}`} className="m-0 whitespace-pre-wrap leading-6" dir="ltr">
+                                  {tokenizeCustomLine(line).map((token, tokenIndex) => (
+                                    <span
+                                      key={`${section.label}-${sectionIndex}-${index}-${tokenIndex}`}
+                                      className={
+                                        token.text === '|'
+                                          ? 'font-mono font-bold text-[var(--chord-delimiter)]'
+                                          : token.isChord
+                                            ? 'font-mono font-semibold text-[var(--chord)]'
+                                            : 'text-[var(--text)]'
+                                      }
+                                    >
+                                      {token.text}
+                                    </span>
+                                  ))}
+                                </p>
+                              )
+                            }
+
+                            return (
+                              <div key={`${section.label}-${sectionIndex}-${index}`} className="chopro-sheet" dir={textDirection(line)}>
+                                <div className="line-block">
+                                  <div className="phrase-row">
+                                    <div className="phrase-block">
+                                      <div className="phrase-chord empty">&nbsp;</div>
+                                      <div className="phrase-lyric">{line}</div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })()
                         ))}
                       </div>
                     </section>

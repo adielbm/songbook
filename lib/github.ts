@@ -1,5 +1,5 @@
 import { buildEntry, type SongEntry } from './songbook-core'
-import type { RepoSettings } from './storage'
+import type { CachedSongSnapshot, RepoSettings } from './storage'
 
 interface GithubTreeEntry {
   path: string
@@ -15,6 +15,11 @@ interface GithubTreeResponse {
 interface GithubBlobResponse {
   content?: string
   encoding?: string
+}
+
+export interface PullSongsResult {
+  songs: SongEntry[]
+  pathShas: Record<string, string>
 }
 
 function splitRepository(repository: string): { owner: string; name: string } {
@@ -43,8 +48,9 @@ function decodeBase64Unicode(value: string): string {
 
 export async function pullSongsFromGithub(
   settings: RepoSettings,
+  cachedByPath: Map<string, CachedSongSnapshot>,
   onProgress?: (done: number, total: number) => void,
-): Promise<SongEntry[]> {
+): Promise<PullSongsResult> {
   const { owner, name } = splitRepository(settings.repository)
   const chordsPath = settings.chordsPath.trim().replace(/^\/+|\/+$/g, '')
   const treeResponse = await fetch(
@@ -71,9 +77,24 @@ export async function pullSongsFromGithub(
     .sort((left, right) => left.path.localeCompare(right.path))
 
   const entries: SongEntry[] = []
+  const pathShas: Record<string, string> = {}
 
   for (let index = 0; index < files.length; index += 1) {
     const file = files[index]
+    pathShas[file.path] = file.sha
+    const cached = cachedByPath.get(file.path)
+
+    if (cached?.sha === file.sha) {
+      const fileName = file.path.split('/').pop() ?? file.path
+      entries.push(buildEntry(fileName, cached.song.raw, 'github', file.path))
+
+      if (onProgress) {
+        onProgress(index + 1, files.length)
+      }
+
+      continue
+    }
+
     const blobResponse = await fetch(
       `https://api.github.com/repos/${owner}/${name}/git/blobs/${encodeURIComponent(file.sha)}`,
       {
@@ -95,5 +116,5 @@ export async function pullSongsFromGithub(
     }
   }
 
-  return entries
+  return { songs: entries, pathShas }
 }

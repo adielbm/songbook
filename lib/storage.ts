@@ -25,6 +25,12 @@ interface SyncMeta {
 
 const SETTINGS_KEY = 'settings'
 const SYNC_META_PREFIX = 'sync:'
+const SONG_SHAS_PREFIX = 'song-shas:'
+
+export interface CachedSongSnapshot {
+  song: SongEntry
+  sha: string | null
+}
 
 async function db() {
   return openDB(DB_NAME, DB_VERSION, {
@@ -83,9 +89,33 @@ export async function loadCachedSongs(key: string): Promise<SongEntry[]> {
     .sort((left, right) => left.path.localeCompare(right.path))
 }
 
-export async function replaceCachedSongs(key: string, songs: SongEntry[]): Promise<void> {
+export async function loadCachedSongsWithShas(key: string): Promise<Map<string, CachedSongSnapshot>> {
+  const songs = await loadCachedSongs(key)
   const database = await db()
-  const tx = database.transaction(['songs'], 'readwrite')
+  const stored = (await database.get('meta', `${SONG_SHAS_PREFIX}${key}`)) as
+    | { key: string; value?: Record<string, string> }
+    | undefined
+  const pathShas = stored?.value ?? {}
+
+  const snapshots = new Map<string, CachedSongSnapshot>()
+
+  for (const song of songs) {
+    snapshots.set(song.path, {
+      song,
+      sha: pathShas[song.path] ?? null,
+    })
+  }
+
+  return snapshots
+}
+
+export async function replaceCachedSongs(
+  key: string,
+  songs: SongEntry[],
+  pathShas?: Record<string, string>,
+): Promise<void> {
+  const database = await db()
+  const tx = database.transaction(['songs', 'meta'], 'readwrite')
   const store = tx.objectStore('songs')
   const index = store.index('repoKey')
   let cursor = await index.openCursor(key)
@@ -103,6 +133,16 @@ export async function replaceCachedSongs(key: string, songs: SongEntry[]): Promi
     }
     await store.put(record)
   }
+
+  const nextShas: Record<string, string> = {}
+  for (const song of songs) {
+    const sha = pathShas?.[song.path]
+    if (sha) {
+      nextShas[song.path] = sha
+    }
+  }
+
+  await tx.objectStore('meta').put({ key: `${SONG_SHAS_PREFIX}${key}`, value: nextShas })
 
   await tx.done
 }
