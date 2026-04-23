@@ -512,13 +512,13 @@ function App() {
                               {token.chord ? (
                                 <div className="phrase-chord">{token.chord}</div>
                               ) : (
-                                <div className="phrase-chord empty">&nbsp;</div>
+                                <div className="phrase-chord empty"></div>
                               )}
 
                               {token.lyric ? (
                                 <div className="phrase-lyric">{token.lyric}</div>
                               ) : (
-                                <div className="phrase-lyric empty">&nbsp;</div>
+                                <div className="phrase-lyric empty"></div>
                               )}
                             </div>
                           ))}

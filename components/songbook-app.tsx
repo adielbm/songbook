@@ -978,13 +978,13 @@ export function SongbookApp() {
                               {token.chord ? (
                                 <div className="phrase-chord">{token.chord}</div>
                               ) : (
-                                <div className="phrase-chord empty">&nbsp;</div>
+                                <div className="phrase-chord empty"></div>
                               )}
 
                               {token.lyric ? (
                                 <div className="phrase-lyric">{token.lyric}</div>
                               ) : (
-                                <div className="phrase-lyric empty">&nbsp;</div>
+                                <div className="phrase-lyric empty"></div>
                               )}
                             </div>
                           ))}
@@ -1015,13 +1015,13 @@ export function SongbookApp() {
                                           {token.chord ? (
                                             <div className="phrase-chord">{token.chord}</div>
                                           ) : (
-                                            <div className="phrase-chord empty">&nbsp;</div>
+                                            <div className="phrase-chord empty"></div>
                                           )}
 
                                           {token.lyric ? (
                                             <div className="phrase-lyric">{token.lyric}</div>
                                           ) : (
-                                            <div className="phrase-lyric empty">&nbsp;</div>
+                                            <div className="phrase-lyric empty"></div>
                                           )}
                                         </div>
                                       ))}
@@ -1057,7 +1057,7 @@ export function SongbookApp() {
                                 <div className="line-block">
                                   <div className="phrase-row">
                                     <div className="phrase-block">
-                                      <div className="phrase-chord empty">&nbsp;</div>
+                                      <div className="phrase-chord empty"></div>
                                       <div className="phrase-lyric">{line}</div>
                                     </div>
                                   </div>
