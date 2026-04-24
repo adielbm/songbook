@@ -1008,15 +1008,20 @@ export function SongbookApp() {
 
                             if (line.includes('|')) {
                               return (
-                                <p key={`${section.label}-${sectionIndex}-${index}`} className="m-0 whitespace-pre-wrap leading-6" dir="ltr">
+                                <p
+                                  key={`${section.label}-${sectionIndex}-${index}`}
+                                  className="m-0 whitespace-pre-wrap leading-6"
+                                  style={{ fontFamily: 'var(--chord-font)' }}
+                                  dir="ltr"
+                                >
                                   {tokenizeCustomLine(line).map((token, tokenIndex) => (
                                     <span
                                       key={`${section.label}-${sectionIndex}-${index}-${tokenIndex}`}
                                       className={
                                         token.text === '|'
-                                          ? 'font-mono font-bold text-[var(--chord-delimiter)]'
+                                          ? 'font-bold text-[var(--chord-delimiter)]'
                                           : token.isChord
-                                            ? 'font-mono font-semibold text-[var(--chord)]'
+                                            ? 'text-[var(--chord)]'
                                             : 'text-[var(--text)]'
                                       }
                                     >

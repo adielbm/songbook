@@ -1,0 +1,139 @@
+@use './flexoki';
+@import url('https://fonts.googleapis.com/css2?family=Miriam+Libre:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Condensed:ital,wght@0,100..900;1,100..900&display=swap');
+
+:root {
+  --chord-font: "Roboto Condensed";
+  color-scheme: light;
+  --bg: var(--flexoki-paper);
+  --border: var(--flexoki-600);
+  --text: var(--flexoki-black);
+  --muted: var(--flexoki-500);
+  --accent-blue: var(--flexoki-blue-600);
+  --accent-pink: var(--flexoki-magenta-500);
+  --accent-green: var(--flexoki-cyan-400);
+  --accent: var(--flexoki-blue-300);
+  --background: var(--bg);
+  --foreground: var(--text);
+  --chord: var(--flexoki-magenta-400);
+  --chord-delimiter: var(--flexoki-black);
+  --song-section: var(--flexoki-black);
+  --song-section-bg: var(--flexoki-magenta-200);
+}
+
+:root.dark,
+.dark {
+  color-scheme: dark;
+  --bg: var(--flexoki-black);
+  --border: var(--flexoki-500);
+  --text: var(--flexoki-paper);
+  --muted: var(--flexoki-300);
+  --accent-blue: var(--flexoki-blue-200);
+  --accent-pink: var(--flexoki-magenta-300);
+  --accent-green: var(--flexoki-cyan-300);
+  --accent: var(--flexoki-blue-200);
+  --background: var(--bg);
+  --foreground: var(--text);
+  --chord: var(--flexoki-magenta-300);
+  --chord-delimiter: var(--flexoki-white);
+  --song-section: var(--flexoki-white);
+  --song-section-bg: var(--flexoki-magenta-300);
+}
+
+html,
+body {
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+}
+
+body {
+  margin: 0;
+  font-family: 'Miriam Libre', sans-serif;
+}
+
+.song-sheet {
+  font-size: var(--song-font-size, 18px);
+}
+
+.chopro-sheet {
+  line-height: 1;
+}
+
+.chopro-sheet .section {
+  margin: 0.85rem 0 0.45rem;
+  color: var(--accent-pink);
+  font-size: 1.08em;
+  background: var(--panel-soft);
+  padding: 0 1em;
+}
+
+.chopro-sheet .line-block.empty {
+  min-height: 1.4rem;
+}
+
+.chopro-sheet .phrase-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  direction: inherit;
+}
+
+.chopro-sheet .phrase-row.no-lyrics {
+  gap: 0.15rem 0.35rem;
+}
+
+.chopro-sheet .phrase-block {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.chopro-sheet .phrase-chord,
+.chopro-sheet .phrase-lyric {
+  margin: 0;
+  padding: 0;
+  white-space: pre-wrap;
+  direction: inherit;
+  unicode-bidi: plaintext;
+  text-align: right;
+  font-size: 0.98em;
+  line-height: 1;
+  color: var(--text);
+}
+
+.chopro-sheet .phrase-chord {
+  min-height: 1.2rem;
+  color: var(--chord);
+  font-family: var(--chord-font);
+  font-stretch: 50%;
+}
+
+.chopro-sheet .phrase-chord.empty,
+.chopro-sheet .phrase-lyric.empty {
+  visibility: hidden;
+}
+
+.chopro-sheet .spacer {
+  height: 0.5rem;
+}
+
+@media print {
+  html,
+  body {
+    background: var(--flexoki-paper) !important;
+    color: var(--flexoki-black) !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .song-sheet {
+    border: 0 !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+}
