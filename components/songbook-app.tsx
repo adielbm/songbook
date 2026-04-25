@@ -30,6 +30,7 @@ import {
   UploadCloud,
   X,
   Home,
+  Users,
 } from 'lucide-react'
 import { pullSongsFromGithub } from '@/lib/github'
 import { buildSongView, fileStem, type SongEntry, type SongView } from '@/lib/songbook-core'
@@ -80,7 +81,16 @@ type RouteSettings = {
   mode: 'settings'
 }
 
-type AppRoute = RouteHome | RouteFolder | RouteSong | RouteSettings
+type RouteArtists = {
+  mode: 'artists'
+}
+
+type RouteArtist = {
+  mode: 'artist'
+  artist: string
+}
+
+type AppRoute = RouteHome | RouteFolder | RouteSong | RouteSettings | RouteArtists | RouteArtist
 
 type SongRouteEntry = {
   song: SongEntry
@@ -279,6 +289,17 @@ function parseHashRoute(): AppRoute {
     }
   }
 
+  if (parts[0] === 'artists') {
+    return { mode: 'artists' }
+  }
+
+  if (parts[0] === 'artist') {
+    return {
+      mode: 'artist',
+      artist: parts.slice(1).join('/'),
+    }
+  }
+
   if (parts[0] === 'song') {
     return {
       mode: 'song',
@@ -305,6 +326,14 @@ function routeHash(route: AppRoute): string {
 
   if (route.mode === 'settings') {
     return '#/settings/'
+  }
+
+  if (route.mode === 'artists') {
+    return '#/artists/'
+  }
+
+  if (route.mode === 'artist') {
+    return `#/artist/${encodeURIComponent(route.artist)}/`
   }
 
   if (route.mode === 'folder') {
@@ -599,6 +628,66 @@ export function SongbookApp() {
 
   const visibleSongCount = visibleRows.filter((row) => row.kind === 'song').length
 
+  const searchSongRows = useMemo(
+    () =>
+      routeSongs
+        .filter((entry) => songMatchesQuery(entry, normalizedQuery))
+        .map((entry) => ({
+          folder: entry.folder,
+          slug: entry.slug,
+          song: entry.song,
+        })),
+    [normalizedQuery, routeSongs],
+  )
+
+  const artistList = useMemo(() => {
+    const artists = new Set<string>()
+
+    for (const entry of routeSongs) {
+      const artist = entry.song.artist?.trim()
+      if (artist) {
+        artists.add(artist)
+      }
+    }
+
+    return Array.from(artists).sort((left, right) => left.localeCompare(right))
+  }, [routeSongs])
+
+  const visibleArtists = useMemo(() => {
+    if (!normalizedQuery) {
+      return artistList
+    }
+
+    return artistList.filter((artist) => {
+      if (artist.toLowerCase().includes(normalizedQuery)) {
+        return true
+      }
+
+      return routeSongs.some((entry) => {
+        if ((entry.song.artist ?? '').trim() !== artist) {
+          return false
+        }
+
+        return songMatchesQuery(entry, normalizedQuery)
+      })
+    })
+  }, [artistList, normalizedQuery, routeSongs])
+
+  const artistSongs = useMemo(() => {
+    if (route.mode !== 'artist') {
+      return []
+    }
+
+    return routeSongs
+      .filter((entry) => (entry.song.artist ?? '').trim() === route.artist)
+      .filter((entry) => songMatchesQuery(entry, normalizedQuery))
+      .map((entry) => ({
+        folder: entry.folder,
+        slug: entry.slug,
+        song: entry.song,
+      }))
+  }, [normalizedQuery, route, routeSongs])
+
   const selectedSongEntry = useMemo(() => {
     if (route.mode !== 'song') {
       return null
@@ -655,6 +744,17 @@ export function SongbookApp() {
     setTranspose(transposeFromCapo(selectedSongView.capo))
   }, [selectedSongEntry?.song.path])
 
+  useEffect(() => {
+    window.scrollTo({ top: 0 })
+  }, [route])
+
+  function openSongRoute(folder: string, slug: string) {
+    const nextRoute: AppRoute = { mode: 'song', folder, slug }
+    setQuery('')
+    setRoute(nextRoute)
+    navigate(nextRoute)
+  }
+
   const view: SongView | null = selectedSongEntry ? buildSongView(selectedSongEntry.song, transpose) : null
 
   return (
@@ -662,17 +762,30 @@ export function SongbookApp() {
       {/* <div className="text-center text-[7px] text-[var(--muted)]">{syncMetaText}</div> */}
       <header className="no-print z-20 mb-3 rounded-[1.2rem]">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <Button
-            aria-label="Home"
-            variant="outline"
-            onPress={() => {
-              const nextRoute: AppRoute = { mode: 'home' }
-              setRoute(nextRoute)
-              navigate(nextRoute)
-            }}
-          >
-            <Home size={16} />
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <Button
+              aria-label="Home"
+              variant="outline"
+              onPress={() => {
+                const nextRoute: AppRoute = { mode: 'home' }
+                setRoute(nextRoute)
+                navigate(nextRoute)
+              }}
+            >
+              <Home size={16} />
+            </Button>
+            <Button
+              aria-label="Artists"
+              variant="outline"
+              onPress={() => {
+                const nextRoute: AppRoute = { mode: 'artists' }
+                setRoute(nextRoute)
+                navigate(nextRoute)
+              }}
+            >
+              <Users size={16} />
+            </Button>
+          </div>
 
           <hr />
 
@@ -847,7 +960,7 @@ export function SongbookApp() {
                   className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-transparent px-2 py-1.5 text-left text-sm text-[var(--text)] transition-colors hover:border-[var(--border)] hover: focus-visible:border-[var(--accent)] focus-visible: focus-visible:outline-none"
                   href={routeHash(nextRoute)}
                   onClick={() => {
-                    setRoute(nextRoute)
+                    openSongRoute(row.folder, row.slug)
                   }}
                 >
                   <span className="inline-flex items-center gap-2 text-[var(--muted)]">
@@ -864,8 +977,123 @@ export function SongbookApp() {
             <p className="px-3 py-4 text-sm text-[var(--muted)]">No folders or songs found.</p>
           )}
         </main>
+      ) : route.mode === 'artists' ? (
+        <main className="grid gap-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <h4 className="m-0 text-xl font-semibold">Artists</h4>
+            </div>
+          </div>
+
+          <hr />
+
+          {visibleArtists.length ? (
+            visibleArtists.map((artist) => {
+              const nextRoute: AppRoute = { mode: 'artist', artist }
+
+              return (
+                <a
+                  key={artist}
+                  className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-transparent px-2 py-1.5 text-left text-sm text-[var(--text)] transition-colors hover:border-[var(--border)] hover: focus-visible:border-[var(--accent)] focus-visible: focus-visible:outline-none"
+                  href={routeHash(nextRoute)}
+                  onClick={() => {
+                    setRoute(nextRoute)
+                  }}
+                >
+                  <span className="inline-flex items-center gap-2 text-[var(--muted)]">
+                    <Users size={16} />
+                  </span>
+                  <span className="min-w-0 truncate font-medium">{artist}</span>
+                </a>
+              )
+            })
+          ) : (
+            <p className="px-3 py-4 text-sm text-[var(--muted)]">No artists found.</p>
+          )}
+        </main>
+      ) : route.mode === 'artist' ? (
+        <main className="grid gap-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Button
+                aria-label="Back to artists"
+                variant="outline"
+                onPress={() => {
+                  const nextRoute: AppRoute = { mode: 'artists' }
+                  setRoute(nextRoute)
+                  navigate(nextRoute)
+                }}
+              >
+                <ChevronLeft size={16} />
+              </Button>
+              <h4 className="m-0 text-xl font-semibold">{route.artist}</h4>
+            </div>
+          </div>
+
+          <hr />
+
+          {artistSongs.length ? (
+            artistSongs.map((row) => {
+              const nextRoute: AppRoute = { mode: 'song', folder: row.folder, slug: row.slug }
+
+              return (
+                <a
+                  key={row.song.path}
+                  className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-transparent px-2 py-1.5 text-left text-sm text-[var(--text)] transition-colors hover:border-[var(--border)] hover: focus-visible:border-[var(--accent)] focus-visible: focus-visible:outline-none"
+                  href={routeHash(nextRoute)}
+                  onClick={() => {
+                    openSongRoute(row.folder, row.slug)
+                  }}
+                >
+                  <span className="inline-flex items-center gap-2 text-[var(--muted)]">
+                    <Music2 size={16} />
+                  </span>
+                  <span className="min-w-0">
+                    <strong className="block truncate">{row.song.title}</strong>
+                    {row.folder ? <span className="block truncate text-xs text-[var(--muted)]">{folderName(row.folder)}</span> : null}
+                  </span>
+                </a>
+              )
+            })
+          ) : (
+            <p className="px-3 py-4 text-sm text-[var(--muted)]">No songs found for this artist.</p>
+          )}
+        </main>
       ) : (
         <main className="grid gap-3">
+          {normalizedQuery ? (
+            <section className="grid gap-2">
+              <h4 className="m-0 text-xl font-semibold">Search results</h4>
+              <hr />
+              {searchSongRows.length ? (
+                searchSongRows.map((row) => {
+                  const nextRoute: AppRoute = { mode: 'song', folder: row.folder, slug: row.slug }
+
+                  return (
+                    <a
+                      key={row.song.path}
+                      className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-transparent px-2 py-1.5 text-left text-sm text-[var(--text)] transition-colors hover:border-[var(--border)] hover: focus-visible:border-[var(--accent)] focus-visible: focus-visible:outline-none"
+                      href={routeHash(nextRoute)}
+                      onClick={() => {
+                        setRoute(nextRoute)
+                      }}
+                    >
+                      <span className="inline-flex items-center gap-2 text-[var(--muted)]">
+                        <Music2 size={16} />
+                      </span>
+                      <span className="min-w-0">
+                        <strong className="block truncate">{row.song.title}</strong>
+                        {row.song.artist ? <span className="block truncate text-xs text-[var(--muted)]">{row.song.artist}</span> : null}
+                      </span>
+                    </a>
+                  )
+                })
+              ) : (
+                <p className="px-3 py-4 text-sm text-[var(--muted)]">No songs found for this search.</p>
+              )}
+            </section>
+          ) : null}
+
           {view ? (
             <article className="song-sheet rounded-xl py-3" dir={view.format === 'chords' ? 'ltr' : view.rtl ? 'rtl' : 'ltr'}>
               <hr className="mb-3 border-[var(--border)]" />
@@ -914,7 +1142,21 @@ export function SongbookApp() {
 
               <div className="mb-2">
                 <h1 className="m-0 text-2xl font-semibold" dir={textDirection(view.title)}>{view.title}</h1>
-                {view.artist ? <p className="m-0 text-sm text-[var(--muted)]" dir={textDirection(view.artist)}>{view.artist}</p> : null}
+                {view.artist ? (
+                  <p className="m-0 text-sm text-[var(--muted)]" dir={textDirection(view.artist)}>
+                    <a
+                      className="transition-colors hover:text-[var(--text)]"
+                      href={routeHash({ mode: 'artist', artist: view.artist })}
+                      onClick={() => {
+                        const nextRoute: AppRoute = { mode: 'artist', artist: view.artist as string }
+                        setRoute(nextRoute)
+                        navigate(nextRoute)
+                      }}
+                    >
+                      {view.artist}
+                    </a>
+                  </p>
+                ) : null}
                 {view.comment ? <p className="m-0 text-sm text-[var(--muted)]" dir={textDirection(view.comment)}>{view.comment}</p> : null}
               </div>
 
