@@ -19,6 +19,7 @@
   --chord-delimiter: var(--flexoki-black);
   --song-section: var(--flexoki-black);
   --song-section-bg: var(--flexoki-magenta-200);
+  --light-border: var(--flexoki-150);
 }
 
 :root.dark,
@@ -38,6 +39,7 @@
   --chord-delimiter: var(--flexoki-white);
   --song-section: var(--flexoki-white);
   --song-section-bg: var(--flexoki-magenta-300);
+  --light-border: var(--flexoki-850);
 }
 
 html,
@@ -77,6 +79,7 @@ body {
   flex-wrap: wrap;
   justify-content: flex-start;
   direction: inherit;
+  border-bottom: 1px solid var(--light-border);
 }
 
 .chopro-sheet .phrase-row.no-lyrics {
@@ -84,10 +87,11 @@ body {
 }
 
 .chopro-sheet .phrase-block {
-  display: inline-flex;
   flex-direction: column;
   align-items: flex-start;
   min-width: 0;
+  display: inline-flex;
+  justify-content: flex-end;
 }
 
 .chopro-sheet .phrase-chord,
@@ -108,6 +112,63 @@ body {
   color: var(--chord);
   font-family: var(--chord-font);
   font-stretch: 50%;
+  border-right: 1px solid var(--light-border);
+}
+
+.phrase-chord-trigger,
+.chord-tooltip-trigger {
+  display: inline-flex;
+  vertical-align: baseline;
+  cursor: pointer;
+}
+
+.phrase-chord-trigger.chord-tooltip-open .phrase-chord {
+  background: var(--song-section-bg);
+  color: var(--bg);
+  outline: none;
+  border-right-color: transparent;
+  z-index: 1000;
+}
+
+.chord-tooltip-open {
+  border-radius: 0.25rem;
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--chord) 45%, transparent);
+}
+
+.chord-tooltip-panel {
+  z-index: 50;
+  pointer-events: none;
+  max-width: min(16rem, calc(100vw - 1rem));
+  border: 3px solid var(--chord);
+  border-radius: 0.9rem;
+  background: var(--text);
+  box-shadow: 0 18px 40px var(--text);
+}
+
+.chord-tooltip-diagram {
+  min-width: 8.5rem;
+}
+
+.chord-tooltip-fallback {
+  min-width: 8rem;
+  display: grid;
+  gap: 0.25rem;
+  line-height: 1.2;
+}
+
+.chord-tooltip-fallback strong {
+  color: var(--chord);
+  font-family: var(--chord-font);
+  font-size: 1rem;
+}
+
+.chord-tooltip-fallback span {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.barre { 
+  fill: var(--chord) !important;
 }
 
 .chopro-sheet .phrase-chord.empty,
@@ -120,6 +181,7 @@ body {
 }
 
 @media print {
+
   html,
   body {
     background: var(--flexoki-paper) !important;

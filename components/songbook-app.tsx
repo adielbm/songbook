@@ -6,7 +6,6 @@ import {
   Chip,
   Label,
   Input,
-  SearchField,
   Separator,
   Spinner,
   TextField,
@@ -34,6 +33,7 @@ import {
 } from 'lucide-react'
 import { pullSongsFromGithub } from '@/lib/github'
 import { buildSongView, fileStem, type SongEntry, type SongView } from '@/lib/songbook-core'
+import { ChordTooltip } from '@/components/chord-tooltip'
 import { sampleSongs } from '@/lib/samples'
 import {
   clearSettings,
@@ -383,7 +383,7 @@ function ThemeToggle() {
 
   if (!mounted) {
     return (
-      <Button aria-label="Toggle theme" variant="outline" isDisabled>
+      <Button aria-label="Toggle theme" variant="outline" size="sm" className="min-w-8 px-2" isDisabled>
         <SunMedium size={16} />
       </Button>
     )
@@ -396,6 +396,8 @@ function ThemeToggle() {
     <Button
       aria-label="Toggle theme"
       variant="outline"
+      size="sm"
+      className="min-w-8 px-2"
       onPress={() => setTheme(isDark ? 'light' : 'dark')}
     >
       {isDark ? <MoonStar size={16} /> : <SunMedium size={16} />}
@@ -756,16 +758,22 @@ export function SongbookApp() {
   }
 
   const view: SongView | null = selectedSongEntry ? buildSongView(selectedSongEntry.song, transpose) : null
+  const chordFingerings = useMemo(() => {
+    const entries = view?.fingerings ?? []
+    return new Map(entries.map((definition) => [definition.chord.trim(), definition.fingering]))
+  }, [view?.fingerings])
 
   return (
     <div className="mx-auto min-h-screen max-w-6xl px-1.5 py-2 md:px-3" style={{ ['--song-font-size' as string]: `${fontSize}px` }}>
       {/* <div className="text-center text-[7px] text-[var(--muted)]">{syncMetaText}</div> */}
       <header className="no-print z-20 mb-3 rounded-[1.2rem]">
-        <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <Button
               aria-label="Home"
               variant="outline"
+              size="sm"
+              className="min-w-8 px-2"
               onPress={() => {
                 const nextRoute: AppRoute = { mode: 'home' }
                 setRoute(nextRoute)
@@ -777,6 +785,8 @@ export function SongbookApp() {
             <Button
               aria-label="Artists"
               variant="outline"
+              size="sm"
+              className="min-w-8 px-2"
               onPress={() => {
                 const nextRoute: AppRoute = { mode: 'artists' }
                 setRoute(nextRoute)
@@ -787,22 +797,21 @@ export function SongbookApp() {
             </Button>
           </div>
 
-          <hr />
-
-
           <div className="flex items-center gap-1.5">
-            <div className="flex items-center gap-2 text-[0.65rem] text-[var(--muted)]">
-              {pulling ? (
+
+            {pulling ? (
+              <div className="flex items-center gap-2 text-[0.65rem] text-[var(--muted)]">
                 <span className="inline-flex items-center gap-2">
                   <Spinner size="sm" />
                   {pullProgress.done}/{pullProgress.total || '?'}
                 </span>
-              ) : null}
-            </div>
+              </div>
+            ) : null}
 
             <Button
               aria-label="Sync repository"
               variant="outline"
+              size="sm"
               onPress={() => {
                 if (!settings) {
                   navigate({ mode: 'settings' })
@@ -810,7 +819,7 @@ export function SongbookApp() {
                 }
                 void handlePull()
               }}
-              className="gap-1.5"
+              className="gap-1 px-2"
             >
               <RefreshCw size={16} className={pulling ? 'animate-spin' : ''} />
               <span className="text-xs font-medium">{songs.length}</span>
@@ -818,6 +827,8 @@ export function SongbookApp() {
             <Button
               aria-label="Open settings"
               variant="outline"
+              size="sm"
+              className="min-w-8 px-2"
               onPress={() => {
                 const nextRoute: AppRoute = { mode: 'settings' }
                 setRoute(nextRoute)
@@ -831,13 +842,31 @@ export function SongbookApp() {
         </div>
 
         <div className="grid gap-2">
-          <SearchField className="w-full" fullWidth onChange={setQuery} value={query} variant="secondary">
-            <SearchField.Group className="h-9 rounded-full border border-[var(--border)]  px-2 transition-colors data-[focus-within=true]:border-[var(--accent)] data-[focus-within=true]:">
-              <SearchField.SearchIcon className="pointer-events-none shrink-0 text-[var(--muted)]" />
-              <SearchField.Input aria-label="Search songs or folders" className="text-sm placeholder:text-[var(--muted)]" placeholder="Search" />
-              <SearchField.ClearButton className="shrink-0 rounded-full  p-1 text-[var(--muted)]" />
-            </SearchField.Group>
-          </SearchField>
+          <div className="w-full">
+            <div className="flex items-center gap-2 rounded-md border border-[var(--border)] px-2 py-1.5">
+              <input
+                aria-label="Search songs or folders"
+                className="w-full bg-transparent text-sm outline-none placeholder:text-[var(--muted)]"
+                placeholder="Search"
+                type="text"
+                value={query}
+                onChange={(event) => {
+                  setQuery(event.currentTarget.value)
+                }}
+              />
+              {query ? (
+                <button
+                  type="button"
+                  className="text-xs text-[var(--muted)]"
+                  onClick={() => {
+                    setQuery('')
+                  }}
+                >
+                  Clear
+                </button>
+              ) : null}
+            </div>
+          </div>
         </div>
       </header>
 
@@ -1132,9 +1161,11 @@ export function SongbookApp() {
                 {view.fingerings?.length ? (
                   <div className="flex flex-wrap gap-2">
                     {view.fingerings.map((definition) => (
-                      <Chip key={`${definition.chord}-${definition.fingering}`} variant="soft" color="success">
-                        {definition.chord} {definition.fingering}
-                      </Chip>
+                      <ChordTooltip key={`${definition.chord}-${definition.fingering}`} chord={definition.chord} fingering={definition.fingering} as="div" className="inline-flex">
+                        <Chip variant="soft" color="success">
+                          {definition.chord} {definition.fingering}
+                        </Chip>
+                      </ChordTooltip>
                     ))}
                   </div>
                 ) : null}
@@ -1191,7 +1222,14 @@ export function SongbookApp() {
                           {tokens.map((token, tokenIndex) => (
                             <div key={`chopro-token-${blockIndex}-${tokenIndex}`} className="phrase-block">
                               {token.chord ? (
-                                <div className="phrase-chord">{token.chord}</div>
+                                <ChordTooltip
+                                  chord={token.chord}
+                                  fingering={chordFingerings.get(token.chord.trim()) ?? null}
+                                  as="div"
+                                  className="phrase-chord-trigger"
+                                >
+                                  <div className="phrase-chord">{token.chord}</div>
+                                </ChordTooltip>
                               ) : (
                                 <div className="phrase-chord empty"></div>
                               )}
@@ -1230,7 +1268,14 @@ export function SongbookApp() {
                                       {inlineTokens.map((token, tokenIndex) => (
                                         <div key={`${section.label}-${sectionIndex}-${index}-${tokenIndex}`} className="phrase-block">
                                           {token.chord ? (
-                                            <div className="phrase-chord">{token.chord}</div>
+                                            <ChordTooltip
+                                              chord={token.chord}
+                                              fingering={chordFingerings.get(token.chord.trim()) ?? null}
+                                              as="div"
+                                              className="phrase-chord-trigger"
+                                            >
+                                              <div className="phrase-chord">{token.chord}</div>
+                                            </ChordTooltip>
                                           ) : (
                                             <div className="phrase-chord empty"></div>
                                           )}
@@ -1256,20 +1301,32 @@ export function SongbookApp() {
                                   style={{ fontFamily: 'var(--chord-font)' }}
                                   dir="ltr"
                                 >
-                                  {tokenizeCustomLine(line).map((token, tokenIndex) => (
-                                    <span
-                                      key={`${section.label}-${sectionIndex}-${index}-${tokenIndex}`}
-                                      className={
-                                        token.text === '|'
-                                          ? 'font-bold text-[var(--chord-delimiter)]'
-                                          : token.isChord
-                                            ? 'text-[var(--chord)]'
-                                            : 'text-[var(--text)]'
-                                      }
-                                    >
-                                      {token.text}
-                                    </span>
-                                  ))}
+                                  {tokenizeCustomLine(line).map((token, tokenIndex) =>
+                                    token.text === '|' ? (
+                                      <span
+                                        key={`${section.label}-${sectionIndex}-${index}-${tokenIndex}`}
+                                        className="font-bold text-[var(--chord-delimiter)]"
+                                      >
+                                        {token.text}
+                                      </span>
+                                    ) : token.isChord ? (
+                                      <ChordTooltip
+                                        key={`${section.label}-${sectionIndex}-${index}-${tokenIndex}`}
+                                        chord={token.text}
+                                        fingering={chordFingerings.get(token.text.trim()) ?? null}
+                                        className="inline-flex align-baseline"
+                                      >
+                                        <span className="text-[var(--chord)]">{token.text}</span>
+                                      </ChordTooltip>
+                                    ) : (
+                                      <span
+                                        key={`${section.label}-${sectionIndex}-${index}-${tokenIndex}`}
+                                        className="text-[var(--text)]"
+                                      >
+                                        {token.text}
+                                      </span>
+                                    ),
+                                  )}
                                 </p>
                               )
                             }
