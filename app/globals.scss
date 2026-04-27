@@ -9,9 +9,9 @@
   --border: var(--flexoki-600);
   --text: var(--flexoki-black);
   --muted: var(--flexoki-500);
-  --accent-blue: var(--flexoki-blue-600);
+  --accent-blue: var(--flexoki-blue-500);
   --accent-pink: var(--flexoki-magenta-500);
-  --accent-green: var(--flexoki-cyan-400);
+  --accent-green: var(--flexoki-cyan-500);
   --accent: var(--flexoki-blue-300);
   --background: var(--bg);
   --foreground: var(--text);
@@ -107,6 +107,11 @@ body {
   color: var(--text);
 }
 
+.phrase-lyric:first-letter {
+  color: var(--accent-green);
+  font-weight: bold;
+}
+
 .chopro-sheet .phrase-chord {
   min-height: 1.2rem;
   color: var(--chord);
@@ -121,11 +126,11 @@ body {
 }
 
 .phrase-chord-trigger.chord-tooltip-open .phrase-chord {
-    background: var(--flexoki-yellow-150);
-    color: var(--black);
-    z-index: 1000;
-    border-right-color: transparent;
-    outline: none;
+  background: var(--flexoki-yellow-150);
+  color: var(--black);
+  z-index: 1000;
+  border-right-color: transparent;
+  outline: none;
 }
 
 .chord-tooltip-open {
@@ -134,14 +139,14 @@ body {
 }
 
 .chord-tooltip-panel {
-    z-index: 50;
-    pointer-events: none;
-    border: 4px solid var(--flexoki-yellow-400);
-    padding: 11px 2px;
-    background: var(--flexoki-yellow-50);
-    max-width: min(16rem, 100vw - 1rem);
-    box-shadow: 4px 5px 0px 0px var(--flexoki-yellow-150);
-    border-radius: 6px;
+  z-index: 50;
+  pointer-events: none;
+  border: 4px solid var(--flexoki-yellow-400);
+  padding: 11px 2px;
+  background: var(--flexoki-yellow-50);
+  max-width: min(16rem, 100vw - 1rem);
+  box-shadow: 4px 5px 0px 0px var(--flexoki-yellow-150);
+  border-radius: 6px;
 }
 
 .chord-tooltip-diagram {
@@ -166,7 +171,7 @@ body {
   font-size: 0.75rem;
 }
 
-.barre { 
+.barre {
   fill: var(--chord) !important;
 }
 
