@@ -598,6 +598,31 @@ export function SongbookApp() {
   const normalizedQuery = query.trim().toLowerCase()
 
   const visibleRows = useMemo<LibraryRow[]>(() => {
+    if (normalizedQuery) {
+      const folders = new Set<string>()
+
+      for (const entry of routeSongs) {
+        if (entry.folder && folderMatchesQuery(entry.folder, normalizedQuery, routeSongs)) {
+          folders.add(entry.folder)
+        }
+      }
+
+      const folderRows = Array.from(folders)
+        .sort((left, right) => left.localeCompare(right))
+        .map((folder) => ({ kind: 'folder' as const, folder }))
+
+      const songRows = routeSongs
+        .filter((entry) => songMatchesQuery(entry, normalizedQuery))
+        .map((entry) => ({
+          kind: 'song' as const,
+          folder: entry.folder,
+          slug: entry.slug,
+          song: entry.song,
+        }))
+
+      return [...folderRows, ...songRows]
+    }
+
     const childFolders = new Set<string>()
 
     for (const entry of routeSongs) {
@@ -681,8 +706,8 @@ export function SongbookApp() {
     }
 
     return routeSongs
-      .filter((entry) => (entry.song.artist ?? '').trim() === route.artist)
       .filter((entry) => songMatchesQuery(entry, normalizedQuery))
+      .filter((entry) => (normalizedQuery ? true : (entry.song.artist ?? '').trim() === route.artist))
       .map((entry) => ({
         folder: entry.folder,
         slug: entry.slug,
@@ -750,11 +775,18 @@ export function SongbookApp() {
     window.scrollTo({ top: 0 })
   }, [route])
 
-  function openSongRoute(folder: string, slug: string) {
-    const nextRoute: AppRoute = { mode: 'song', folder, slug }
-    setQuery('')
+  function openRoute(nextRoute: AppRoute, options?: { clearQuery?: boolean }) {
+    if (options?.clearQuery ?? true) {
+      setQuery('')
+    }
+
     setRoute(nextRoute)
     navigate(nextRoute)
+  }
+
+  function openSongRoute(folder: string, slug: string) {
+    const nextRoute: AppRoute = { mode: 'song', folder, slug }
+    openRoute(nextRoute)
   }
 
   const view: SongView | null = selectedSongEntry ? buildSongView(selectedSongEntry.song, transpose) : null
@@ -776,8 +808,7 @@ export function SongbookApp() {
               className="min-w-8 px-2"
               onPress={() => {
                 const nextRoute: AppRoute = { mode: 'home' }
-                setRoute(nextRoute)
-                navigate(nextRoute)
+                openRoute(nextRoute)
               }}
             >
               <Home size={16} />
@@ -789,8 +820,7 @@ export function SongbookApp() {
               className="min-w-8 px-2"
               onPress={() => {
                 const nextRoute: AppRoute = { mode: 'artists' }
-                setRoute(nextRoute)
-                navigate(nextRoute)
+                openRoute(nextRoute)
               }}
             >
               <Users size={16} />
@@ -831,8 +861,7 @@ export function SongbookApp() {
               className="min-w-8 px-2"
               onPress={() => {
                 const nextRoute: AppRoute = { mode: 'settings' }
-                setRoute(nextRoute)
-                navigate(nextRoute)
+                openRoute(nextRoute)
               }}
             >
               <Settings2 size={16} />
@@ -970,7 +999,7 @@ export function SongbookApp() {
                     className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-transparent px-2 py-1.5 text-left text-sm text-[var(--text)] transition-colors hover:border-[var(--border)] hover: focus-visible:border-[var(--accent)] focus-visible: focus-visible:outline-none"
                     href={routeHash(nextRoute)}
                     onClick={() => {
-                      setRoute(nextRoute)
+                      openRoute(nextRoute)
                     }}
                   >
                     <span className="inline-flex items-center gap-2 text-[var(--muted)]">
@@ -1026,7 +1055,7 @@ export function SongbookApp() {
                   className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-transparent px-2 py-1.5 text-left text-sm text-[var(--text)] transition-colors hover:border-[var(--border)] hover: focus-visible:border-[var(--accent)] focus-visible: focus-visible:outline-none"
                   href={routeHash(nextRoute)}
                   onClick={() => {
-                    setRoute(nextRoute)
+                    openRoute(nextRoute)
                   }}
                 >
                   <span className="inline-flex items-center gap-2 text-[var(--muted)]">
@@ -1049,13 +1078,12 @@ export function SongbookApp() {
                 variant="outline"
                 onPress={() => {
                   const nextRoute: AppRoute = { mode: 'artists' }
-                  setRoute(nextRoute)
-                  navigate(nextRoute)
+                  openRoute(nextRoute)
                 }}
               >
                 <ChevronLeft size={16} />
               </Button>
-              <h4 className="m-0 text-xl font-semibold">{route.artist}</h4>
+              <h4 className="m-0 text-xl font-semibold">{normalizedQuery ? 'Search results' : route.artist}</h4>
             </div>
           </div>
 
@@ -1085,7 +1113,7 @@ export function SongbookApp() {
               )
             })
           ) : (
-            <p className="px-3 py-4 text-sm text-[var(--muted)]">No songs found for this artist.</p>
+            <p className="px-3 py-4 text-sm text-[var(--muted)]">{normalizedQuery ? 'No songs found for this search.' : 'No songs found for this artist.'}</p>
           )}
         </main>
       ) : (
@@ -1104,7 +1132,7 @@ export function SongbookApp() {
                       className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-transparent px-2 py-1.5 text-left text-sm text-[var(--text)] transition-colors hover:border-[var(--border)] hover: focus-visible:border-[var(--accent)] focus-visible: focus-visible:outline-none"
                       href={routeHash(nextRoute)}
                       onClick={() => {
-                        setRoute(nextRoute)
+                        openRoute(nextRoute)
                       }}
                     >
                       <span className="inline-flex items-center gap-2 text-[var(--muted)]">
@@ -1180,8 +1208,7 @@ export function SongbookApp() {
                       href={routeHash({ mode: 'artist', artist: view.artist })}
                       onClick={() => {
                         const nextRoute: AppRoute = { mode: 'artist', artist: view.artist as string }
-                        setRoute(nextRoute)
-                        navigate(nextRoute)
+                        openRoute(nextRoute)
                       }}
                     >
                       {view.artist}
@@ -1231,13 +1258,13 @@ export function SongbookApp() {
                                   <div className="phrase-chord">{token.chord}</div>
                                 </ChordTooltip>
                               ) : (
-                                <div className="phrase-chord empty"></div>
+                                <div className="phrase-chord empty">.</div>
                               )}
 
                               {token.lyric ? (
                                 <div className="phrase-lyric">{token.lyric}</div>
                               ) : (
-                                <div className="phrase-lyric empty"></div>
+                                <div className="phrase-lyric empty">.</div>
                               )}
                             </div>
                           ))}
@@ -1277,13 +1304,13 @@ export function SongbookApp() {
                                               <div className="phrase-chord">{token.chord}</div>
                                             </ChordTooltip>
                                           ) : (
-                                            <div className="phrase-chord empty"></div>
+                                            <div className="phrase-chord empty">.</div>
                                           )}
 
                                           {token.lyric ? (
                                             <div className="phrase-lyric">{token.lyric}</div>
                                           ) : (
-                                            <div className="phrase-lyric empty"></div>
+                                            <div className="phrase-lyric empty">.</div>
                                           )}
                                         </div>
                                       ))}

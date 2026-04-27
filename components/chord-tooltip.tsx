@@ -350,7 +350,8 @@ export function ChordTooltip({ chord, fingering, className, as = 'span', childre
 
     const root = window.getComputedStyle(document.documentElement)
     const isDarkTheme = document.documentElement.classList.contains('dark')
-    const diagramInk = isDarkTheme ? '#000000' : '#ffffff'
+    // const diagramInk = isDarkTheme ? '#000000' : '#ffffff'
+    const diagramInk = '#000000';
     const chordColor = root.getPropertyValue('--chord').trim() || '#8c3d69'
 
     new SVGuitarChord(panel)
@@ -416,7 +417,7 @@ export function ChordTooltip({ chord, fingering, className, as = 'span', childre
             ) : (
               <div className="chord-tooltip-fallback">
                 <strong>{chord}</strong>
-                <span>No fingering in cache</span>
+                <span>No fingering</span>
               </div>
             )}
           </div>

@@ -111,8 +111,6 @@ body {
   min-height: 1.2rem;
   color: var(--chord);
   font-family: var(--chord-font);
-  font-stretch: 50%;
-  border-right: 1px solid var(--light-border);
 }
 
 .phrase-chord-trigger,
@@ -123,11 +121,11 @@ body {
 }
 
 .phrase-chord-trigger.chord-tooltip-open .phrase-chord {
-  background: var(--song-section-bg);
-  color: var(--bg);
-  outline: none;
-  border-right-color: transparent;
-  z-index: 1000;
+    background: var(--flexoki-yellow-150);
+    color: var(--black);
+    z-index: 1000;
+    border-right-color: transparent;
+    outline: none;
 }
 
 .chord-tooltip-open {
@@ -136,13 +134,14 @@ body {
 }
 
 .chord-tooltip-panel {
-  z-index: 50;
-  pointer-events: none;
-  max-width: min(16rem, calc(100vw - 1rem));
-  border: 3px solid var(--chord);
-  border-radius: 0.9rem;
-  background: var(--text);
-  box-shadow: 0 18px 40px var(--text);
+    z-index: 50;
+    pointer-events: none;
+    border: 4px solid var(--flexoki-yellow-400);
+    padding: 11px 2px;
+    background: var(--flexoki-yellow-50);
+    max-width: min(16rem, 100vw - 1rem);
+    box-shadow: 4px 5px 0px 0px var(--flexoki-yellow-150);
+    border-radius: 6px;
 }
 
 .chord-tooltip-diagram {
