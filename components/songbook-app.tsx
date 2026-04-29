@@ -32,7 +32,7 @@ import {
   Users,
 } from 'lucide-react'
 import { pullSongsFromGithub } from '@/lib/github'
-import { buildSongView, fileStem, type SongEntry, type SongView } from '@/lib/songbook-core'
+import { buildSongView, fileStem, normalizeChordSymbol, normalizeChordSymbolForKey, type SongEntry, type SongView } from '@/lib/songbook-core'
 import { ChordTooltip } from '@/components/chord-tooltip'
 import { sampleSongs } from '@/lib/samples'
 import {
@@ -110,17 +110,20 @@ type LibraryRow =
     song: SongEntry
   }
 
-function tokenizeCustomLine(line: string): LineToken[] {
+function tokenizeCustomLine(line: string, tonic: string | null = null, isMinor: boolean = false): LineToken[] {
   return line
     .split(/(\s+|\||\(|\)|\[|\]|\{|\}|,|\.|:|;|\+|-|\\|\/)/g)
     .filter(Boolean)
-    .map((part) => ({
-      text: part,
-      isChord: /^[A-G](?:#|b)?(?:m|maj|min|sus|dim|aug|add|no|M|[0-9]|[#b]|\(|\)|\+|-)*(?:\/[A-G](?:#|b)?)?$/i.test(part),
-    }))
+    .map((part) => {
+      const isChord = /^[A-G](?:#|b)?(?:m|maj|min|sus|dim|aug|add|no|M|[0-9]|[#b]|\(|\)|\+|-)*(?:\/[A-G](?:#|b)?)?$/i.test(part)
+      return {
+        text: isChord ? normalizeChordSymbolForKey(part, tonic, isMinor) : part,
+        isChord,
+      }
+    })
 }
 
-function parseInlineChordLine(line: string): InlineChordToken[] {
+function parseInlineChordLine(line: string, tonic: string | null = null, isMinor: boolean = false): InlineChordToken[] {
   const pattern = /\[([^\]]+)\]/g
   let cursor = 0
   let lyrics = ''
@@ -135,7 +138,7 @@ function parseInlineChordLine(line: string): InlineChordToken[] {
       lyrics += before
     }
 
-    const chord = (match[1] ?? '').trim()
+    const chord = normalizeChordSymbolForKey((match[1] ?? '').trim(), tonic, isMinor)
     if (chord) {
       chords.push({ chord, pos: lyrics.length })
     }
@@ -792,8 +795,13 @@ export function SongbookApp() {
   const view: SongView | null = selectedSongEntry ? buildSongView(selectedSongEntry.song, transpose) : null
   const chordFingerings = useMemo(() => {
     const entries = view?.fingerings ?? []
-    return new Map(entries.map((definition) => [definition.chord.trim(), definition.fingering]))
-  }, [view?.fingerings])
+    return new Map(
+      entries.map((definition) => [
+        normalizeChordSymbolForKey(definition.chord.trim(), view?.detectedTonic ?? null, view?.detectedIsMinor ?? false),
+        definition.fingering,
+      ]),
+    )
+  }, [view?.fingerings, view?.detectedTonic, view?.detectedIsMinor])
 
   return (
     <div className="mx-auto min-h-screen max-w-6xl px-1.5 py-2 md:px-3" style={{ ['--song-font-size' as string]: `${fontSize}px` }}>
@@ -1189,7 +1197,7 @@ export function SongbookApp() {
                 {view.fingerings?.length ? (
                   <div className="flex flex-wrap gap-2">
                     {view.fingerings.map((definition) => (
-                      <ChordTooltip key={`${definition.chord}-${definition.fingering}`} chord={definition.chord} fingering={definition.fingering} as="div" className="inline-flex">
+                      <ChordTooltip key={`${definition.chord}-${definition.fingering}`} chord={definition.chord} fingering={definition.fingering} as="div" className="inline-flex" tonic={view?.detectedTonic ?? null} isMinor={view?.detectedIsMinor ?? false}>
                         <Chip variant="soft" color="success">
                           {definition.chord} {definition.fingering}
                         </Chip>
@@ -1254,6 +1262,8 @@ export function SongbookApp() {
                                   fingering={chordFingerings.get(token.chord.trim()) ?? null}
                                   as="div"
                                   className="phrase-chord-trigger"
+                                  tonic={view?.detectedTonic ?? null}
+                                  isMinor={view?.detectedIsMinor ?? false}
                                 >
                                   <div className="phrase-chord">{token.chord}</div>
                                 </ChordTooltip>
@@ -1261,7 +1271,7 @@ export function SongbookApp() {
                                 <div className="phrase-chord empty">.</div>
                               )}
 
-                              {token.lyric ? (
+                              {token.lyric?.trim() ? (
                                 <div className="phrase-lyric">{token.lyric}</div>
                               ) : (
                                 <div className="phrase-lyric empty">.</div>
@@ -1285,7 +1295,7 @@ export function SongbookApp() {
                       <div className="grid gap-2">
                         {section.lines.map((line, index) => (
                           (() => {
-                            const inlineTokens = parseInlineChordLine(line)
+                            const inlineTokens = parseInlineChordLine(line, view?.detectedTonic ?? null, view?.detectedIsMinor ?? false)
 
                             if (inlineTokens.length) {
                               return (
@@ -1300,6 +1310,8 @@ export function SongbookApp() {
                                               fingering={chordFingerings.get(token.chord.trim()) ?? null}
                                               as="div"
                                               className="phrase-chord-trigger"
+                                              tonic={view?.detectedTonic ?? null}
+                                              isMinor={view?.detectedIsMinor ?? false}
                                             >
                                               <div className="phrase-chord">{token.chord}</div>
                                             </ChordTooltip>
@@ -1307,7 +1319,7 @@ export function SongbookApp() {
                                             <div className="phrase-chord empty">.</div>
                                           )}
 
-                                          {token.lyric ? (
+                                          {token.lyric?.trim() ? (
                                             <div className="phrase-lyric">{token.lyric}</div>
                                           ) : (
                                             <div className="phrase-lyric empty">.</div>
@@ -1328,7 +1340,7 @@ export function SongbookApp() {
                                   style={{ fontFamily: 'var(--chord-font)' }}
                                   dir="ltr"
                                 >
-                                  {tokenizeCustomLine(line).map((token, tokenIndex) =>
+                                  {tokenizeCustomLine(line, view?.detectedTonic ?? null, view?.detectedIsMinor ?? false).map((token, tokenIndex) =>
                                     token.text === '|' ? (
                                       <span
                                         key={`${section.label}-${sectionIndex}-${index}-${tokenIndex}`}
@@ -1342,6 +1354,8 @@ export function SongbookApp() {
                                         chord={token.text}
                                         fingering={chordFingerings.get(token.text.trim()) ?? null}
                                         className="inline-flex align-baseline"
+                                        tonic={view?.detectedTonic ?? null}
+                                        isMinor={view?.detectedIsMinor ?? false}
                                       >
                                         <span className="text-[var(--chord)]">{token.text}</span>
                                       </ChordTooltip>
@@ -1363,8 +1377,12 @@ export function SongbookApp() {
                                 <div className="line-block">
                                   <div className="phrase-row">
                                     <div className="phrase-block">
-                                      <div className="phrase-chord empty"></div>
-                                      <div className="phrase-lyric">{line}</div>
+                                      <div className="phrase-chord empty">.</div>
+                                      {line ? (
+                                        <div className="phrase-lyric">{line}</div>
+                                      ) : (
+                                        <div className="phrase-lyric empty">.</div>
+                                      )}
                                     </div>
                                   </div>
                                 </div>

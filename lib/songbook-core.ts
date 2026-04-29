@@ -44,6 +44,8 @@ export interface SongView {
   capo: string | null
   comment: string | null
   rtl: boolean
+  detectedTonic: string | null
+  detectedIsMinor: boolean
   choproBlocks?: ChoproBlockView[]
   sections?: CustomSectionView[]
   fingerings?: FingeringView[]
@@ -96,6 +98,152 @@ const HIDDEN_CHOPRO_DIRECTIVES = new Set([
   'year',
 ])
 
+const NOTE_TO_SEMITONE: Record<string, number> = {
+  C: 0,
+  'B#': 0,
+  'C#': 1,
+  Db: 1,
+  D: 2,
+  'D#': 3,
+  Eb: 3,
+  E: 4,
+  Fb: 4,
+  F: 5,
+  'E#': 5,
+  'F#': 6,
+  Gb: 6,
+  G: 7,
+  'G#': 8,
+  Ab: 8,
+  A: 9,
+  'A#': 10,
+  Bb: 10,
+  B: 11,
+  Cb: 11,
+}
+
+const SEMITONE_TO_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const
+const SEMITONE_TO_FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'] as const
+
+function semitoneFromNote(note: string): number | null {
+  return NOTE_TO_SEMITONE[note] ?? null
+}
+
+function majorKeyToSharpsMap(): Record<string, number> {
+  return {
+    C: 0,
+    G: 1,
+    D: 2,
+    A: 3,
+    E: 4,
+    B: 5,
+    'F#': 6,
+    'C#': 7,
+    F: -1,
+    Bb: -2,
+    Eb: -3,
+    Ab: -4,
+    Db: -5,
+    Gb: -6,
+    Cb: -7,
+  }
+}
+
+function getKeySignatureSharps(tonic: string, isMinor: boolean): number {
+  const tonicSemitone = semitoneFromNote(tonic)
+  if (tonicSemitone === null) {
+    return 0
+  }
+
+  let root = tonic
+  if (isMinor) {
+    root = SEMITONE_TO_SHARP[(tonicSemitone + 3) % 12]
+  }
+
+  return majorKeyToSharpsMap()[root] ?? 0
+}
+
+function normalizeNoteSpelling(note: string): string {
+  const cleaned = cleanText(note)
+  if (!cleaned) {
+    return cleaned
+  }
+
+  const formatted = `${cleaned[0].toUpperCase()}${cleaned.slice(1).replace(/[^#b]/g, '')}`
+  const semitone = semitoneFromNote(formatted)
+
+  if (semitone === null) {
+    return formatted
+  }
+
+  // Always prefer flat-style spellings for display (e.g., Bb instead of A#)
+  return SEMITONE_TO_FLAT[semitone]
+}
+
+function normalizeNoteSpellingForKey(note: string, keySignatureSharps: number): string {
+  const cleaned = cleanText(note)
+  if (!cleaned) {
+    return cleaned
+  }
+
+  const formatted = `${cleaned[0].toUpperCase()}${cleaned.slice(1).replace(/[^#b]/g, '')}`
+  const semitone = semitoneFromNote(formatted)
+
+  if (semitone === null) {
+    return formatted
+  }
+
+  // Always prefer flat-style spellings regardless of key signature
+  return SEMITONE_TO_FLAT[semitone]
+}
+
+export function normalizeChordSymbol(chord: string): string {
+  const cleaned = cleanText(chord)
+  if (!cleaned) {
+    return cleaned
+  }
+
+  const parsed = cleaned.match(/^([A-Ga-g])([#b]?)(.*)$/)
+  if (!parsed) {
+    return cleaned
+  }
+
+  const root = normalizeNoteSpelling(`${parsed[1].toUpperCase()}${parsed[2] ?? ''}`)
+  let rest = parsed[3] ?? ''
+
+  rest = rest.replace(/\/([A-Ga-g])([#b]?)/g, (_match, bassRoot: string, accidental: string) => {
+    return `/${normalizeNoteSpelling(`${bassRoot.toUpperCase()}${accidental ?? ''}`)}`
+  })
+
+  return `${root}${rest}`
+}
+
+export function normalizeChordSymbolForKey(
+  chord: string,
+  tonic: string | null,
+  isMinor: boolean,
+): string {
+  const cleaned = cleanText(chord)
+  if (!cleaned || !tonic) {
+    return normalizeChordSymbol(chord)
+  }
+
+  const parsed = cleaned.match(/^([A-Ga-g])([#b]?)(.*)$/)
+  if (!parsed) {
+    return cleaned
+  }
+
+  const keySignatureSharps = getKeySignatureSharps(tonic, isMinor)
+  const root = normalizeNoteSpellingForKey(`${parsed[1].toUpperCase()}${parsed[2] ?? ''}`, keySignatureSharps)
+  let rest = parsed[3] ?? ''
+
+  rest = rest.replace(/\/([A-Ga-g])([#b]?)/g, (_match, bassRoot: string, accidental: string) => {
+    return `/${normalizeNoteSpellingForKey(`${bassRoot.toUpperCase()}${accidental ?? ''}`, keySignatureSharps)}`
+  })
+
+  return `${root}${rest}`
+}
+
 export function fileStem(fileName: string): string {
   return fileName.replace(/\.[^.]+$/, '')
 }
@@ -141,21 +289,26 @@ function isLikelyChordToken(token: string): boolean {
   return /^[A-G](?:#|b)?(?:m|maj|min|sus|dim|aug|add|no|M|[0-9]|[#b]|\(|\)|\+|-)*(?:\/[A-G](?:#|b)?)?$/i.test(token)
 }
 
-function transposeChordToken(token: string, delta: number): string {
+function transposeChordToken(token: string, delta: number, tonic: string | null = null, isMinor: boolean = false): string {
   if (!isLikelyChordToken(token)) {
     return token
+  }
+
+  if (!delta) {
+    return tonic ? normalizeChordSymbolForKey(token, tonic, isMinor) : normalizeChordSymbol(token)
   }
 
   const chord = Chord.parse(token)
 
   if (!chord) {
-    return token
+    return tonic ? normalizeChordSymbolForKey(token, tonic, isMinor) : normalizeChordSymbol(token)
   }
 
   try {
-    return chord.transpose(delta).toString()
+    const transposed = chord.transpose(delta).toString()
+    return tonic ? normalizeChordSymbolForKey(transposed, tonic, isMinor) : normalizeChordSymbol(transposed)
   } catch {
-    return token
+    return tonic ? normalizeChordSymbolForKey(token, tonic, isMinor) : normalizeChordSymbol(token)
   }
 }
 
@@ -168,7 +321,7 @@ function cleanText(value: string): string {
     .trim()
 }
 
-function parseChordedLine(line: string): { lyrics: string; chords: { chord: string; pos: number }[] } {
+function parseChordedLine(line: string, tonic: string | null = null, isMinor: boolean = false): { lyrics: string; chords: { chord: string; pos: number }[] } {
   const pattern = /\[([^\]]+)\]/g
   let cursor = 0
   let lyrics = ''
@@ -183,7 +336,8 @@ function parseChordedLine(line: string): { lyrics: string; chords: { chord: stri
       lyrics += before
     }
 
-    const chord = cleanText(match[1] ?? '')
+    const rawChord = cleanText(match[1] ?? '')
+    const chord = tonic ? normalizeChordSymbolForKey(rawChord, tonic, isMinor) : normalizeChordSymbol(rawChord)
     if (chord) {
       chords.push({ chord, pos: lyrics.length })
     }
@@ -199,8 +353,8 @@ function parseChordedLine(line: string): { lyrics: string; chords: { chord: stri
   return { lyrics, chords }
 }
 
-function splitChordLineIntoTokens(line: string): ChoproTokenView[] {
-  const parsed = parseChordedLine(line)
+function splitChordLineIntoTokens(line: string, tonic: string | null = null, isMinor: boolean = false): ChoproTokenView[] {
+  const parsed = parseChordedLine(line, tonic, isMinor)
 
   if (parsed.chords.length === 0) {
     return parsed.lyrics.trim() ? [{ lyric: parsed.lyrics }] : []
@@ -228,18 +382,14 @@ function splitChordLineIntoTokens(line: string): ChoproTokenView[] {
   return tokens
 }
 
-function transposeChoproLine(line: string, delta: number): string {
-  if (!delta) {
-    return line
-  }
-
+function transposeChoproLine(line: string, delta: number, tonic: string | null = null, isMinor: boolean = false): string {
   return line.replace(/\[([^\]]+)\]/g, (fullMatch, rawChord: string) => {
     const chord = cleanText(rawChord)
     if (!chord) {
       return fullMatch
     }
 
-    return `[${transposeChordToken(chord, delta)}]`
+    return `[${transposeChordToken(chord, delta, tonic, isMinor)}]`
   })
 }
 
@@ -304,7 +454,7 @@ function sanitizeChoproForParser(raw: string): string {
     .join('\n')
 }
 
-function buildChoproBlocks(raw: string, transpose: number): ChoproBlockView[] {
+function buildChoproBlocks(raw: string, transpose: number, tonic: string | null = null, isMinor: boolean = false): ChoproBlockView[] {
   const lines = String(raw).replace(/\r\n?/g, '\n').split('\n')
   const blocks: ChoproBlockView[] = []
 
@@ -335,7 +485,7 @@ function buildChoproBlocks(raw: string, transpose: number): ChoproBlockView[] {
       }
     }
 
-    const tokens = splitChordLineIntoTokens(transposeChoproLine(line, transpose))
+    const tokens = splitChordLineIntoTokens(transposeChoproLine(line, transpose, tonic, isMinor), tonic, isMinor)
     blocks.push({
       type: 'line',
       tokens,
@@ -346,11 +496,7 @@ function buildChoproBlocks(raw: string, transpose: number): ChoproBlockView[] {
   return blocks
 }
 
-function transposeChordText(text: string, delta: number): string {
-  if (!delta) {
-    return text
-  }
-
+function transposeChordText(text: string, delta: number, tonic: string | null = null, isMinor: boolean = false): string {
   // First transpose inline [Chord] markers embedded in lyric text.
   const withInlineChords = text.replace(/\[([^\]]+)\]/g, (fullMatch, rawChord: string) => {
     const chord = cleanText(rawChord)
@@ -358,7 +504,7 @@ function transposeChordText(text: string, delta: number): string {
       return fullMatch
     }
 
-    return `[${transposeChordToken(chord, delta)}]`
+    return `[${transposeChordToken(chord, delta, tonic, isMinor)}]`
   })
 
   return withInlineChords
@@ -385,7 +531,7 @@ function transposeChordText(text: string, delta: number): string {
           return token
         }
 
-        return `${prefix}${transposeChordToken(core, delta)}${suffix}`
+        return `${prefix}${transposeChordToken(core, delta, tonic, isMinor)}${suffix}`
       })
     })
     .join('')
@@ -399,6 +545,102 @@ function formatSectionLabel(rawLabel: string): string {
   }
 
   return normalized.replace(/\b\w/g, (character) => character.toUpperCase())
+}
+
+function extractChordTokens(raw: string): string[] {
+  const tokens: string[] = []
+  const lines = String(raw).replace(/\r\n?/g, '\n').split('\n')
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim()
+    if (!line || line.startsWith('#')) {
+      continue
+    }
+
+    for (const match of line.matchAll(/\[([^\]]+)\]/g)) {
+      const token = normalizeChordSymbol(cleanText(match[1] ?? ''))
+      if (token && isLikelyChordToken(token)) {
+        tokens.push(token)
+      }
+    }
+
+    const withoutBrackets = line.replace(/\[[^\]]+\]/g, ' ')
+
+    for (const token of withoutBrackets.split(/[^A-Za-z0-9#/bm+()-]+/g)) {
+      const cleaned = normalizeChordSymbol(cleanText(token))
+      if (cleaned && isLikelyChordToken(cleaned)) {
+        tokens.push(cleaned)
+      }
+    }
+  }
+
+  return tokens
+}
+
+function minorTonicFromChord(chord: string): string | null {
+  const parsed = chord.match(/^([A-G](?:#|b)?)(.*)$/)
+  if (!parsed) {
+    return null
+  }
+
+  const suffix = (parsed[2] ?? '').toLowerCase().split('/')[0] ?? ''
+  if (!/^m(?!aj)|^min/.test(suffix)) {
+    return null
+  }
+
+  return normalizeNoteSpelling(parsed[1])
+}
+
+function inferCapoFromMinorTonic(capo: string | null, raw: string): string | null {
+  if (capo) {
+    return capo
+  }
+
+  const chords = extractChordTokens(raw)
+  const tonic = chords.map(minorTonicFromChord).find((value): value is string => Boolean(value))
+
+  if (!tonic) {
+    return null
+  }
+
+  const tonicSemitone = semitoneFromNote(tonic)
+  if (tonicSemitone === null) {
+    return null
+  }
+
+  const targetCandidates = [
+    { tonic: 'A', priority: 0 },
+    { tonic: 'E', priority: 1 },
+  ]
+
+  const capoOptions = targetCandidates
+    .map(({ tonic: target, priority }) => {
+      const targetSemitone = semitoneFromNote(target)
+      if (targetSemitone === null) {
+        return null
+      }
+
+      const capoValue = (tonicSemitone - targetSemitone + 12) % 12
+      return { capoValue, priority }
+    })
+    .filter((value): value is { capoValue: number; priority: number } => Boolean(value))
+    .sort((left, right) => {
+      const leftPenalty = left.capoValue > 7 ? 100 + left.capoValue : left.capoValue
+      const rightPenalty = right.capoValue > 7 ? 100 + right.capoValue : right.capoValue
+
+      if (leftPenalty !== rightPenalty) {
+        return leftPenalty - rightPenalty
+      }
+
+      return left.priority - right.priority
+    })
+
+  const best = capoOptions[0]
+  if (!best || best.capoValue <= 0) {
+    return null
+  }
+
+  return String(best.capoValue)
 }
 
 function parseCustomMetadata(raw: string) {
@@ -431,7 +673,7 @@ function parseCustomMetadata(raw: string) {
       }
 
       if (value && /^[xX0-9\-]+$/.test(value) && isLikelyChordToken(key)) {
-        fingerings.push({ chord: key, fingering: value })
+        fingerings.push({ chord: normalizeChordSymbol(key), fingering: value })
         continue
       }
 
@@ -505,17 +747,23 @@ export function buildEntry(fileName: string, raw: string, source: SongSource, pa
 function renderChoproSong(entry: SongEntry, transpose: number): SongView {
   const parser = new ChordProParser()
   const parsed = parser.parse(sanitizeChoproForParser(entry.raw))
+  const metadataCapo = normalizeSingleValue(parsed.getSingleMetadataValue('capo'))
+
+  const chords = extractChordTokens(entry.raw)
+  const detectedTonic = chords.map(minorTonicFromChord).find((value): value is string => Boolean(value)) ?? null
 
   return {
     title: normalizeSingleValue(parsed.getSingleMetadataValue('title')) ?? entry.title,
     artist: normalizeSingleValue(parsed.getSingleMetadataValue('artist')) ?? entry.artist,
-    capo: normalizeSingleValue(parsed.getSingleMetadataValue('capo')),
+    capo: inferCapoFromMinorTonic(metadataCapo, entry.raw),
     comment: normalizeSingleValue(parsed.getSingleMetadataValue('comment')),
     rtl:
       entry.rtl ||
       hasHebrew(parsed.getSingleMetadataValue('title') ?? '') ||
       hasHebrew(parsed.getSingleMetadataValue('artist') ?? ''),
-    choproBlocks: buildChoproBlocks(entry.raw, transpose),
+    detectedTonic,
+    detectedIsMinor: !!detectedTonic,
+    choproBlocks: buildChoproBlocks(entry.raw, transpose, detectedTonic, !!detectedTonic),
     format: entry.format,
     source: entry.source,
   }
@@ -523,22 +771,29 @@ function renderChoproSong(entry: SongEntry, transpose: number): SongView {
 
 function renderCustomSong(entry: SongEntry, transpose: number): SongView {
   const { metadata, fingerings, sections } = parseCustomMetadata(entry.raw)
+
+  const chords = extractChordTokens(entry.raw)
+  const detectedTonic = chords.map(minorTonicFromChord).find((value): value is string => Boolean(value)) ?? null
+  const isMinor = !!detectedTonic
+
   const transposedSections = sections.map((section) => ({
     label: section.label,
-    lines: section.lines.map((line) => transposeChordText(line, transpose)),
+    lines: section.lines.map((line) => transposeChordText(line, transpose, detectedTonic, isMinor)),
   }))
 
   const transposedFingerings = fingerings.map((definition) => ({
-    chord: transposeChordToken(definition.chord, transpose),
+    chord: transposeChordToken(definition.chord, transpose, detectedTonic, isMinor),
     fingering: definition.fingering,
   }))
 
   return {
     title: metadata.get('title')?.trim() || entry.title,
     artist: metadata.get('artist')?.trim() || entry.artist,
-    capo: metadata.get('capo') ?? null,
+    capo: inferCapoFromMinorTonic(metadata.get('capo') ?? null, entry.raw),
     comment: metadata.get('comment') ?? null,
     rtl: entry.rtl,
+    detectedTonic,
+    detectedIsMinor: isMinor,
     sections: transposedSections,
     fingerings: transposedFingerings,
     format: entry.format,

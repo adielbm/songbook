@@ -94,6 +94,10 @@ body {
   justify-content: flex-end;
 }
 
+.phrase-block:has(.phrase-lyric.empty) {
+  margin-inline-start: 1em;
+}
+
 .chopro-sheet .phrase-chord,
 .chopro-sheet .phrase-lyric {
   margin: 0;
@@ -140,7 +144,7 @@ body {
 
 .chord-tooltip-panel {
   z-index: 50;
-  pointer-events: none;
+  pointer-events: auto;
   border: 4px solid var(--flexoki-yellow-400);
   padding: 11px 2px;
   background: var(--flexoki-yellow-50);
@@ -151,6 +155,30 @@ body {
 
 .chord-tooltip-diagram {
   min-width: 8.5rem;
+}
+
+.chord-tooltip-options {
+  margin-top: 0.35rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.3rem;
+}
+
+.chord-tooltip-option {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1;
+  border-radius: 999px;
+  padding: 0.2rem 0.45rem;
+  cursor: pointer;
+}
+
+.chord-tooltip-option.active {
+  border-color: var(--chord);
+  color: var(--chord);
 }
 
 .chord-tooltip-fallback {

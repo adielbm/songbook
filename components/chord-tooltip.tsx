@@ -15,12 +15,15 @@ import {
   useRole,
 } from '@floating-ui/react'
 import { ChordStyle, Orientation, SVGuitarChord, type Chord as SVGuitarChordData, type Finger } from 'svguitar'
+import { normalizeChordSymbol, normalizeChordSymbolForKey } from '@/lib/songbook-core'
 
 type ChordTooltipProps = {
   chord: string
   fingering?: string | null
   className?: string
   as?: 'span' | 'div'
+  tonic?: string | null
+  isMinor?: boolean
   children: ReactNode
 }
 
@@ -29,6 +32,12 @@ type FingeringDiagram = {
   barres: SVGuitarChordData['barres']
   position?: number
   frets: number
+}
+
+type FingeringOption = {
+  id: string
+  label: string
+  diagram: FingeringDiagram
 }
 
 type ChordsDbPosition = {
@@ -59,8 +68,31 @@ const SHARP_TO_FLAT: Record<string, string> = {
   'D#': 'Eb',
   'G#': 'Ab',
 }
-const chordDiagramCache = new Map<string, FingeringDiagram | null>()
+const chordOptionsCache = new Map<string, FingeringOption[]>()
 let chordsDbPromise: Promise<ChordsDbRoot | null> | null = null
+const NOTE_TO_SEMITONE: Record<string, number> = {
+  C: 0,
+  'B#': 0,
+  'C#': 1,
+  Db: 1,
+  D: 2,
+  'D#': 3,
+  Eb: 3,
+  E: 4,
+  Fb: 4,
+  F: 5,
+  'E#': 5,
+  'F#': 6,
+  Gb: 6,
+  G: 7,
+  'G#': 8,
+  Ab: 8,
+  A: 9,
+  'A#': 10,
+  Bb: 10,
+  B: 11,
+  Cb: 11,
+}
 
 function normalizeDbNote(note: string): string {
   const cleaned = note.trim()
@@ -89,7 +121,7 @@ function normalizeSuffixCandidate(suffix: string): string {
 }
 
 function chordToDbKeyAndSuffix(chord: string): { key: string; suffix: string } | null {
-  const cleaned = chord.trim().replace(/\s+/g, '')
+  const cleaned = normalizeChordSymbol(chord).trim().replace(/\s+/g, '')
   const parsed = cleaned.match(/^([A-Ga-g])([#b]?)(.*)$/)
 
   if (!parsed) {
@@ -102,18 +134,177 @@ function chordToDbKeyAndSuffix(chord: string): { key: string; suffix: string } |
   const rawSuffix = slashIndex >= 0 ? rest.slice(0, slashIndex) : rest
   const rawBass = slashIndex >= 0 ? rest.slice(slashIndex + 1) : ''
   const suffix = normalizeSuffixCandidate(rawSuffix)
-
-  if (rawBass) {
-    return {
-      key: normalizeDbNote(base),
-      suffix: `${suffix}/${normalizeDbNote(rawBass)}`,
-    }
-  }
+  // If the chord has a custom bass (/B), ignore the bass when resolving
+  // fingering positions — show the fingering for the main chord instead.
+  // e.g., Gm/B should resolve positions for Gm.
 
   return {
     key: normalizeDbNote(base),
     suffix,
   }
+}
+
+function semitoneFromNote(note: string): number | null {
+  return NOTE_TO_SEMITONE[note] ?? null
+}
+
+function parseSuffixForGuessing(suffix: string): 'major' | 'minor' | 'dominant7' | 'minor7' | 'major7' | 'sus4' {
+  const plain = suffix.toLowerCase().split('/')[0] ?? ''
+
+  if (plain.startsWith('maj7')) {
+    return 'major7'
+  }
+
+  if (plain.startsWith('m7') || plain.startsWith('min7')) {
+    return 'minor7'
+  }
+
+  if (plain.startsWith('sus4')) {
+    return 'sus4'
+  }
+
+  if (plain === '7' || plain.startsWith('7')) {
+    return 'dominant7'
+  }
+
+  if (plain.startsWith('m') || plain.startsWith('min')) {
+    return 'minor'
+  }
+
+  return 'major'
+}
+
+function createDiagramFromFrets(frets: number[], barre?: { fret: number; fromString: number; toString: number }): FingeringDiagram | null {
+  if (frets.length !== 6) {
+    return null
+  }
+
+  const fingers: Finger[] = []
+  const fretted: number[] = []
+
+  for (let index = 0; index < frets.length; index += 1) {
+    const stringNumber = 6 - index
+    const fret = frets[index] ?? -1
+
+    if (fret < 0) {
+      fingers.push([stringNumber, 'x'])
+      continue
+    }
+
+    fingers.push([stringNumber, fret, fret === 0 ? '0' : String(fret)])
+    if (fret > 0) {
+      fretted.push(fret)
+    }
+  }
+
+  const minFret = fretted.length ? Math.min(...fretted) : 1
+  const maxFret = fretted.length ? Math.max(...fretted) : 1
+
+  return {
+    fingers,
+    barres: barre
+      ? [
+          {
+            fromString: barre.fromString,
+            toString: barre.toString,
+            fret: barre.fret,
+            text: '1',
+          },
+        ]
+      : [],
+    position: minFret > 1 ? minFret : undefined,
+    frets: Math.max(4, maxFret - minFret + 1),
+  }
+}
+
+function transposeShape(shape: number[], shift: number): number[] {
+  return shape.map((fret) => {
+    if (fret < 0) {
+      return -1
+    }
+
+    return fret + shift
+  })
+}
+
+function guessChordDiagrams(chord: string): FingeringOption[] {
+  const parsed = chordToDbKeyAndSuffix(chord)
+  if (!parsed) {
+    return []
+  }
+
+  const rootSemitone = semitoneFromNote(parsed.key)
+  if (rootSemitone === null) {
+    return []
+  }
+
+  const quality = parseSuffixForGuessing(parsed.suffix)
+
+  const eShapes: Record<string, number[]> = {
+    major: [0, 2, 2, 1, 0, 0],
+    minor: [0, 2, 2, 0, 0, 0],
+    dominant7: [0, 2, 0, 1, 0, 0],
+    minor7: [0, 2, 0, 0, 0, 0],
+    major7: [0, 2, 1, 1, 0, 0],
+    sus4: [0, 2, 2, 2, 0, 0],
+  }
+
+  const aShapes: Record<string, number[]> = {
+    major: [-1, 0, 2, 2, 2, 0],
+    minor: [-1, 0, 2, 2, 1, 0],
+    dominant7: [-1, 0, 2, 0, 2, 0],
+    minor7: [-1, 0, 2, 0, 1, 0],
+    major7: [-1, 0, 2, 1, 2, 0],
+    sus4: [-1, 0, 2, 2, 3, 0],
+  }
+
+  const eShift = rootSemitone
+  const aShift = (rootSemitone - 9 + 12) % 12
+  const options: FingeringOption[] = []
+
+  if (eShift > 0 || (parsed.key === 'E' && quality !== 'major')) {
+    const eDiagram = createDiagramFromFrets(
+      transposeShape(eShapes[quality], eShift),
+      eShift > 0
+        ? {
+            fret: eShift,
+            fromString: 6,
+            toString: 1,
+          }
+        : undefined,
+    )
+
+    if (eDiagram) {
+      options.push({
+        id: `${chord}-guess-e`,
+        label: eShift > 0 ? `(${eShift})` : '(?)',
+        diagram: eDiagram,
+      })
+    }
+  }
+
+  if (aShift > 0 || parsed.key === 'A') {
+    const aDiagram = createDiagramFromFrets(
+      transposeShape(aShapes[quality], aShift),
+      aShift > 0
+        ? {
+            fret: aShift,
+            fromString: 5,
+            toString: 1,
+          }
+        : undefined,
+    )
+
+    if (aDiagram) {
+      options.push({
+        id: `${chord}-guess-a`,
+        label: aShift > 0 ? `(${aShift})` : '(?)',
+        diagram: aDiagram,
+      })
+    }
+  }
+
+  return options.slice(0, 4)
 }
 
 function positionToDiagram(position: ChordsDbPosition): FingeringDiagram | null {
@@ -230,25 +421,42 @@ async function loadChordsDbFromCache(): Promise<ChordsDbRoot | null> {
   return chordsDbPromise
 }
 
-async function resolveDiagramFromCachedDb(chord: string): Promise<FingeringDiagram | null> {
-  const cached = chordDiagramCache.get(chord)
-  if (cached !== undefined) {
+async function resolveDiagramOptions(chord: string): Promise<FingeringOption[]> {
+  const normalizedChord = normalizeChordSymbol(chord)
+  const cached = chordOptionsCache.get(normalizedChord)
+  if (cached) {
     return cached
   }
 
-  const token = chordToDbKeyAndSuffix(chord)
-  if (!token) {
-    chordDiagramCache.set(chord, null)
-    return null
+  const options: FingeringOption[] = []
+  const token = chordToDbKeyAndSuffix(normalizedChord)
+
+  if (token) {
+    const db = await loadChordsDbFromCache()
+    const root = db?.chords?.[token.key] ?? []
+    const matched = root.find((entry) => entry.suffix.toLowerCase() === token.suffix.toLowerCase())
+
+    if (matched?.positions?.length) {
+      matched.positions.slice(0, 4).forEach((position, index) => {
+        const diagram = positionToDiagram(position)
+        if (diagram) {
+          options.push({
+            id: `${normalizedChord}-db-${index}`,
+            label: `${index + 1}`,
+            diagram,
+          })
+        }
+      })
+    }
   }
 
-  const db = await loadChordsDbFromCache()
-  const root = db?.chords?.[token.key] ?? []
-  const matched = root.find((entry) => entry.suffix.toLowerCase() === token.suffix.toLowerCase())
-  const diagram = matched?.positions?.[0] ? positionToDiagram(matched.positions[0]) : null
+  if (!options.length) {
+    options.push(...guessChordDiagrams(normalizedChord))
+  }
 
-  chordDiagramCache.set(chord, diagram)
-  return diagram
+  chordOptionsCache.set(normalizedChord, options)
+
+  return options
 }
 
 function parseFingeringDiagram(fingering: string): FingeringDiagram | null {
@@ -298,11 +506,13 @@ function parseFingeringDiagram(fingering: string): FingeringDiagram | null {
   }
 }
 
-export function ChordTooltip({ chord, fingering, className, as = 'span', children }: ChordTooltipProps) {
+export function ChordTooltip({ chord, fingering, className, as = 'span', tonic, isMinor = false, children }: ChordTooltipProps) {
   const [open, setOpen] = useState(false)
+  const normalizedChord = useMemo(() => normalizeChordSymbolForKey(chord, tonic ?? null, isMinor), [chord, tonic, isMinor])
   const inlineDiagram = useMemo(() => (fingering ? parseFingeringDiagram(fingering) : null), [fingering])
-  const [cachedDiagram, setCachedDiagram] = useState<FingeringDiagram | null>(null)
-  const diagram = inlineDiagram ?? cachedDiagram
+  const [options, setOptions] = useState<FingeringOption[]>([])
+  const [activeIndex, setActiveIndex] = useState(0)
+  const diagram = inlineDiagram ?? options[activeIndex]?.diagram ?? null
   const diagramRef = useRef<HTMLDivElement | null>(null)
   const { refs, floatingStyles, context } = useFloating({
     open,
@@ -322,22 +532,26 @@ export function ChordTooltip({ chord, fingering, className, as = 'span', childre
 
   useEffect(() => {
     if (!open || inlineDiagram) {
+      if (!open) {
+        setActiveIndex(0)
+      }
       return
     }
 
     let active = true
-    setCachedDiagram(null)
+    setOptions([])
+    setActiveIndex(0)
 
-    void resolveDiagramFromCachedDb(chord).then((resolved) => {
+    void resolveDiagramOptions(normalizedChord).then((resolved) => {
       if (active) {
-        setCachedDiagram(resolved)
+        setOptions(resolved)
       }
     })
 
     return () => {
       active = false
     }
-  }, [chord, inlineDiagram, open])
+  }, [inlineDiagram, normalizedChord, open])
 
   useEffect(() => {
     const panel = diagramRef.current
@@ -380,7 +594,7 @@ export function ChordTooltip({ chord, fingering, className, as = 'span', childre
         fretSize: 1.2,
         sidePadding: 0.2,
         titleBottomMargin: 0,
-        svgTitle: `${chord} chord diagram`,
+        svgTitle: `${normalizedChord} chord diagram`,
       })
       .chord({
         fingers: diagram.fingers,
@@ -389,7 +603,7 @@ export function ChordTooltip({ chord, fingering, className, as = 'span', childre
         title: '',
       })
       .draw()
-  }, [chord, diagram, open])
+  }, [diagram, normalizedChord, open])
 
   const Trigger = as
   const triggerClassName = [
@@ -413,11 +627,27 @@ export function ChordTooltip({ chord, fingering, className, as = 'span', childre
             {...getFloatingProps()}
           >
             {diagram ? (
-              <div ref={diagramRef} className="chord-tooltip-diagram" />
+              <>
+                <div ref={diagramRef} className="chord-tooltip-diagram" />
+                {!inlineDiagram && options.length > 1 ? (
+                  <div className="chord-tooltip-options" role="group" aria-label="Fingering options">
+                    {options.map((option, index) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        className={index === activeIndex ? 'chord-tooltip-option active' : 'chord-tooltip-option'}
+                        onClick={() => setActiveIndex(index)}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </>
             ) : (
               <div className="chord-tooltip-fallback">
-                <strong>{chord}</strong>
-                <span>No fingering</span>
+                <strong>{normalizedChord}</strong>
+                <span>No fingering found</span>
               </div>
             )}
           </div>
