@@ -1403,7 +1403,9 @@ export function SongbookApp() {
                                 <p
                                   key={`${section.label}-${sectionIndex}-${index}`}
                                   className="m-0 whitespace-pre-wrap leading-6"
-                                  style={{ fontFamily: 'var(--chord-font)' }}
+                                  style={{ fontFamily: 'var(--chord-font)',
+                                    borderBottom: '1px solid var(--light-border)'
+                                   }}
                                   dir="ltr"
                                 >
                                   {tokenizeCustomLine(line, view?.detectedTonic ?? null, view?.detectedIsMinor ?? false).map((token, tokenIndex) =>
