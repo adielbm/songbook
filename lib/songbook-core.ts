@@ -7,7 +7,7 @@ export interface SongEntry {
   path: string
   name: string
   title: string
-  artist: string | null
+  artists: string[]
   format: SongFormat
   raw: string
   source: SongSource
@@ -38,7 +38,7 @@ export interface ChoproBlockView {
 
 export interface SongView {
   title: string
-  artist: string | null
+  artists: string[]
   format: SongFormat
   source: SongSource
   capo: string | null
@@ -260,6 +260,28 @@ function normalizeSingleValue(value: string | string[] | null): string | null {
   }
 
   return value
+}
+
+function parseArtists(value: string | string[] | null | undefined): string[] {
+  if (!value) {
+    return []
+  }
+
+  let artistStr = ''
+  if (Array.isArray(value)) {
+    artistStr = value[0] ?? ''
+  } else {
+    artistStr = value
+  }
+
+  if (!artistStr.trim()) {
+    return []
+  }
+
+  return artistStr
+    .split(',')
+    .map((artist) => artist.trim())
+    .filter((artist) => artist.length > 0)
 }
 
 function normalizeCustomMetadataKey(key: string): 'title' | 'artist' | 'capo' | 'comment' | null {
@@ -698,16 +720,16 @@ function summarizeCustomSong(raw: string, fileName: string) {
   const { metadata } = parseCustomMetadata(raw)
 
   const title = metadata.get('title') ?? titleFromStem(fileName)
-  const artist = metadata.get('artist') ?? null
+  const artists = parseArtists(metadata.get('artist'))
   const capo = metadata.get('capo') ?? null
   const comment = metadata.get('comment') ?? null
 
   return {
     title,
-    artist,
+    artists,
     capo,
     comment,
-    rtl: hasHebrew(raw) || hasHebrew(title) || hasHebrew(artist ?? ''),
+    rtl: hasHebrew(raw) || hasHebrew(title) || hasHebrew(artists.join(', ')),
   }
 }
 
@@ -717,13 +739,13 @@ function summarizeChoproSong(raw: string, fileName: string) {
 
   return {
     title: normalizeSingleValue(song.getSingleMetadataValue('title')) ?? titleFromStem(fileName),
-    artist: normalizeSingleValue(song.getSingleMetadataValue('artist')),
+    artists: parseArtists(song.getSingleMetadataValue('artist')),
     capo: normalizeSingleValue(song.getSingleMetadataValue('capo')),
     comment: normalizeSingleValue(song.getSingleMetadataValue('comment')),
     rtl:
       hasHebrew(raw) ||
       hasHebrew(normalizeSingleValue(song.getSingleMetadataValue('title')) ?? '') ||
-      hasHebrew(normalizeSingleValue(song.getSingleMetadataValue('artist')) ?? ''),
+      hasHebrew(parseArtists(song.getSingleMetadataValue('artist')).join(', ')),
   }
 }
 
@@ -731,12 +753,13 @@ export function buildEntry(fileName: string, raw: string, source: SongSource, pa
   const format: SongFormat = fileName.endsWith('.chopro') ? 'chopro' : 'chords'
   const summary = format === 'chopro' ? summarizeChoproSong(raw, fileName) : summarizeCustomSong(raw, fileName)
   const fallbackArtist = format === 'chords' ? artistFromPath(path) : null
+  const artists = summary.artists.length > 0 ? summary.artists : (fallbackArtist ? [fallbackArtist] : [])
 
   return {
     path,
     name: fileName,
     title: summary.title,
-    artist: summary.artist ?? fallbackArtist,
+    artists,
     format,
     raw,
     source,
@@ -751,16 +774,17 @@ function renderChoproSong(entry: SongEntry, transpose: number): SongView {
 
   const chords = extractChordTokens(entry.raw)
   const detectedTonic = chords.map(minorTonicFromChord).find((value): value is string => Boolean(value)) ?? null
+  const artists = parseArtists(parsed.getSingleMetadataValue('artist')) || entry.artists
 
   return {
     title: normalizeSingleValue(parsed.getSingleMetadataValue('title')) ?? entry.title,
-    artist: normalizeSingleValue(parsed.getSingleMetadataValue('artist')) ?? entry.artist,
+    artists,
     capo: inferCapoFromMinorTonic(metadataCapo, entry.raw),
     comment: normalizeSingleValue(parsed.getSingleMetadataValue('comment')),
     rtl:
       entry.rtl ||
       hasHebrew(parsed.getSingleMetadataValue('title') ?? '') ||
-      hasHebrew(parsed.getSingleMetadataValue('artist') ?? ''),
+      hasHebrew(artists.join(', ')),
     detectedTonic,
     detectedIsMinor: !!detectedTonic,
     choproBlocks: buildChoproBlocks(entry.raw, transpose, detectedTonic, !!detectedTonic),
@@ -786,9 +810,11 @@ function renderCustomSong(entry: SongEntry, transpose: number): SongView {
     fingering: definition.fingering,
   }))
 
+  const artists = parseArtists(metadata.get('artist')) || entry.artists
+
   return {
     title: metadata.get('title')?.trim() || entry.title,
-    artist: metadata.get('artist')?.trim() || entry.artist,
+    artists,
     capo: inferCapoFromMinorTonic(metadata.get('capo') ?? null, entry.raw),
     comment: metadata.get('comment') ?? null,
     rtl: entry.rtl,

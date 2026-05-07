@@ -51,6 +51,7 @@ import {
 const MIN_FONT_SIZE = 14
 const MAX_FONT_SIZE = 28
 const DEFAULT_FONT_SIZE = 18
+const BASE_PATH = '/songbook'
 
 type LineToken = {
   text: string
@@ -248,8 +249,18 @@ function songMatchesQuery(entry: SongRouteEntry, normalizedQuery: string): boole
     return true
   }
 
-  const haystack = `${entry.song.title} ${entry.song.artist ?? ''} ${entry.song.path}`.toLowerCase()
+  const artistsStr = entry.song.artists.join(' ')
+  const haystack = `${entry.song.title} ${artistsStr} ${entry.song.path}`.toLowerCase()
   return haystack.includes(normalizedQuery)
+}
+
+function songHasArtist(artists: string[], artist: string): boolean {
+  const needle = artist.trim()
+  if (!needle) {
+    return false
+  }
+
+  return artists.some((value) => value.trim() === needle)
 }
 
 function folderMatchesQuery(folderPath: string, normalizedQuery: string, songs: SongRouteEntry[]): boolean {
@@ -272,9 +283,9 @@ function folderMatchesQuery(folderPath: string, normalizedQuery: string, songs: 
   })
 }
 
-function parseHashRoute(): AppRoute {
-  const hash = window.location.hash.replace(/^#/, '')
-  const cleaned = hash.replace(/^\//, '')
+function parsePathRoute(): AppRoute {
+  const pathname = window.location.pathname
+  const cleaned = pathname === BASE_PATH ? '' : pathname.startsWith(`${BASE_PATH}/`) ? pathname.slice(BASE_PATH.length + 1) : pathname.replace(/^\//, '')
   const parts = cleaned ? cleaned.split('/').filter(Boolean).map((part) => decodeURIComponent(part)) : []
 
   if (!parts.length) {
@@ -322,21 +333,21 @@ function parseHashRoute(): AppRoute {
   }
 }
 
-function routeHash(route: AppRoute): string {
+function routePath(route: AppRoute): string {
   if (route.mode === 'home') {
-    return '#/'
+    return `${BASE_PATH}/`
   }
 
   if (route.mode === 'settings') {
-    return '#/settings/'
+    return `${BASE_PATH}/settings/`
   }
 
   if (route.mode === 'artists') {
-    return '#/artists/'
+    return `${BASE_PATH}/artists/`
   }
 
   if (route.mode === 'artist') {
-    return `#/artist/${encodeURIComponent(route.artist)}/`
+    return `${BASE_PATH}/artist/${encodeURIComponent(route.artist)}/`
   }
 
   if (route.mode === 'folder') {
@@ -346,7 +357,7 @@ function routeHash(route: AppRoute): string {
       .map((segment) => encodeURIComponent(segment))
       .join('/')
 
-    return folderPath ? `#/folder/${folderPath}/` : '#/folder/'
+    return folderPath ? `${BASE_PATH}/folder/${folderPath}/` : `${BASE_PATH}/folder/`
   }
 
   const folderPath = route.folder
@@ -355,17 +366,21 @@ function routeHash(route: AppRoute): string {
     .map((segment) => encodeURIComponent(segment))
     .join('/')
 
-  return folderPath ? `#/song/${folderPath}/${encodeURIComponent(route.slug)}/` : `#/song/${encodeURIComponent(route.slug)}/`
+  return folderPath ? `${BASE_PATH}/song/${folderPath}/${encodeURIComponent(route.slug)}/` : `${BASE_PATH}/song/${encodeURIComponent(route.slug)}/`
+}
+
+function shouldHandleLinkClick(event: React.MouseEvent<HTMLAnchorElement>): boolean {
+  return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey
 }
 
 function navigate(route: AppRoute): void {
-  const nextHash = routeHash(route)
+  const nextPath = routePath(route)
 
-  if (window.location.hash === nextHash) {
+  if (window.location.pathname === nextPath) {
     return
   }
 
-  window.location.hash = nextHash
+  window.history.pushState({}, '', nextPath)
 }
 
 function formatSyncDate(timestamp: number | null): string {
@@ -428,12 +443,12 @@ export function SongbookApp() {
   const [pullProgress, setPullProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 })
 
   useEffect(() => {
-    setRoute(parseHashRoute())
-    const onHashChange = () => setRoute(parseHashRoute())
+    setRoute(parsePathRoute())
+    const onPopState = () => setRoute(parsePathRoute())
 
-    window.addEventListener('hashchange', onHashChange)
+    window.addEventListener('popstate', onPopState)
     return () => {
-      window.removeEventListener('hashchange', onHashChange)
+      window.removeEventListener('popstate', onPopState)
     }
   }, [])
 
@@ -674,9 +689,11 @@ export function SongbookApp() {
     const artists = new Set<string>()
 
     for (const entry of routeSongs) {
-      const artist = entry.song.artist?.trim()
-      if (artist) {
-        artists.add(artist)
+      for (const artist of entry.song.artists) {
+        const trimmed = artist.trim()
+        if (trimmed) {
+          artists.add(trimmed)
+        }
       }
     }
 
@@ -694,7 +711,7 @@ export function SongbookApp() {
       }
 
       return routeSongs.some((entry) => {
-        if ((entry.song.artist ?? '').trim() !== artist) {
+        if (!songHasArtist(entry.song.artists, artist)) {
           return false
         }
 
@@ -708,9 +725,11 @@ export function SongbookApp() {
       return []
     }
 
+    const currentArtist = route.artist.trim()
+
     return routeSongs
       .filter((entry) => songMatchesQuery(entry, normalizedQuery))
-      .filter((entry) => (normalizedQuery ? true : (entry.song.artist ?? '').trim() === route.artist))
+      .filter((entry) => (normalizedQuery ? true : songHasArtist(entry.song.artists, currentArtist)))
       .map((entry) => ({
         folder: entry.folder,
         slug: entry.slug,
@@ -727,6 +746,10 @@ export function SongbookApp() {
   }, [route, routeSongs])
 
   useEffect(() => {
+    if (status !== 'ready' && status !== 'fallback') {
+      return
+    }
+
     if (route.mode !== 'song' || selectedSongEntry) {
       return
     }
@@ -743,9 +766,13 @@ export function SongbookApp() {
     const nextRoute: AppRoute = folderExists ? { mode: 'folder', folder: route.folder } : { mode: 'home' }
     setRoute(nextRoute)
     navigate(nextRoute)
-  }, [route, routeSongs, selectedSongEntry])
+  }, [route, routeSongs, selectedSongEntry, status])
 
   useEffect(() => {
+    if (status !== 'ready' && status !== 'fallback') {
+      return
+    }
+
     if (route.mode !== 'folder') {
       return
     }
@@ -763,7 +790,7 @@ export function SongbookApp() {
     const nextRoute: AppRoute = { mode: 'song', folder: '', slug: rootSongMatch.slug }
     setRoute(nextRoute)
     navigate(nextRoute)
-  }, [route, routeSongs])
+  }, [route, routeSongs, status])
 
   useEffect(() => {
     if (!selectedSongEntry) {
@@ -1005,8 +1032,13 @@ export function SongbookApp() {
                   <a
                     key={row.folder}
                     className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-transparent px-2 py-1.5 text-left text-sm text-[var(--text)] transition-colors hover:border-[var(--border)] hover: focus-visible:border-[var(--accent)] focus-visible: focus-visible:outline-none"
-                    href={routeHash(nextRoute)}
-                    onClick={() => {
+                    href={routePath(nextRoute)}
+                    onClick={(event) => {
+                      if (!shouldHandleLinkClick(event)) {
+                        return
+                      }
+
+                      event.preventDefault()
                       openRoute(nextRoute)
                     }}
                   >
@@ -1024,8 +1056,13 @@ export function SongbookApp() {
                 <a
                   key={row.song.path}
                   className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-transparent px-2 py-1.5 text-left text-sm text-[var(--text)] transition-colors hover:border-[var(--border)] hover: focus-visible:border-[var(--accent)] focus-visible: focus-visible:outline-none"
-                  href={routeHash(nextRoute)}
-                  onClick={() => {
+                  href={routePath(nextRoute)}
+                  onClick={(event) => {
+                    if (!shouldHandleLinkClick(event)) {
+                      return
+                    }
+
+                    event.preventDefault()
                     openSongRoute(row.folder, row.slug)
                   }}
                 >
@@ -1034,7 +1071,7 @@ export function SongbookApp() {
                   </span>
                   <span className="min-w-0">
                     <strong className="block truncate">{row.song.title}</strong>
-                    {row.song.artist ? <span className="block truncate text-xs text-[var(--muted)]">{row.song.artist}</span> : null}
+                    {row.song.artists.length > 0 ? <span className="block truncate text-xs text-[var(--muted)]">{row.song.artists.join(', ')}</span> : null}
                   </span>
                 </a>
               )
@@ -1061,10 +1098,16 @@ export function SongbookApp() {
                 <a
                   key={artist}
                   className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-transparent px-2 py-1.5 text-left text-sm text-[var(--text)] transition-colors hover:border-[var(--border)] hover: focus-visible:border-[var(--accent)] focus-visible: focus-visible:outline-none"
-                  href={routeHash(nextRoute)}
-                  onClick={() => {
+                  href={routePath(nextRoute)}
+                  onClick={(event) => {
+                    if (!shouldHandleLinkClick(event)) {
+                      return
+                    }
+
+                    event.preventDefault()
                     openRoute(nextRoute)
                   }}
+                  dir={textDirection(artist)}
                 >
                   <span className="inline-flex items-center gap-2 text-[var(--muted)]">
                     <Users size={16} />
@@ -1091,7 +1134,7 @@ export function SongbookApp() {
               >
                 <ChevronLeft size={16} />
               </Button>
-              <h4 className="m-0 text-xl font-semibold">{normalizedQuery ? 'Search results' : route.artist}</h4>
+              <h4 className="m-0 text-xl font-semibold" dir={textDirection(route.artist)}>{normalizedQuery ? 'Search results' : route.artist}</h4>
             </div>
           </div>
 
@@ -1105,8 +1148,13 @@ export function SongbookApp() {
                 <a
                   key={row.song.path}
                   className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-transparent px-2 py-1.5 text-left text-sm text-[var(--text)] transition-colors hover:border-[var(--border)] hover: focus-visible:border-[var(--accent)] focus-visible: focus-visible:outline-none"
-                  href={routeHash(nextRoute)}
-                  onClick={() => {
+                  href={routePath(nextRoute)}
+                  onClick={(event) => {
+                    if (!shouldHandleLinkClick(event)) {
+                      return
+                    }
+
+                    event.preventDefault()
                     openSongRoute(row.folder, row.slug)
                   }}
                 >
@@ -1115,7 +1163,11 @@ export function SongbookApp() {
                   </span>
                   <span className="min-w-0">
                     <strong className="block truncate">{row.song.title}</strong>
-                    {row.folder ? <span className="block truncate text-xs text-[var(--muted)]">{folderName(row.folder)}</span> : null}
+                    {row.song.artists.length > 0 ? (
+                      <span className="block truncate text-xs text-[var(--muted)]" dir={textDirection(row.song.artists.join(' '))}>
+                        {row.song.artists.join(', ')}
+                      </span>
+                    ) : null}
                   </span>
                 </a>
               )
@@ -1138,8 +1190,13 @@ export function SongbookApp() {
                     <a
                       key={row.song.path}
                       className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-transparent px-2 py-1.5 text-left text-sm text-[var(--text)] transition-colors hover:border-[var(--border)] hover: focus-visible:border-[var(--accent)] focus-visible: focus-visible:outline-none"
-                      href={routeHash(nextRoute)}
-                      onClick={() => {
+                      href={routePath(nextRoute)}
+                      onClick={(event) => {
+                        if (!shouldHandleLinkClick(event)) {
+                          return
+                        }
+
+                        event.preventDefault()
                         openRoute(nextRoute)
                       }}
                     >
@@ -1148,7 +1205,7 @@ export function SongbookApp() {
                       </span>
                       <span className="min-w-0">
                         <strong className="block truncate">{row.song.title}</strong>
-                        {row.song.artist ? <span className="block truncate text-xs text-[var(--muted)]">{row.song.artist}</span> : null}
+                        {row.song.artists.length > 0 ? <span className="block truncate text-xs text-[var(--muted)]">{row.song.artists.join(', ')}</span> : null}
                       </span>
                     </a>
                   )
@@ -1195,13 +1252,12 @@ export function SongbookApp() {
 
               <div className="mb-3 grid gap-1">
                 {view.fingerings?.length ? (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid text-[var(--muted)] py-2 border-t border-b border-[var(--border)] my-3">
                     {view.fingerings.map((definition) => (
-                      <ChordTooltip key={`${definition.chord}-${definition.fingering}`} chord={definition.chord} fingering={definition.fingering} as="div" className="inline-flex" tonic={view?.detectedTonic ?? null} isMinor={view?.detectedIsMinor ?? false}>
-                        <Chip variant="soft" color="success">
-                          {definition.chord} {definition.fingering}
-                        </Chip>
-                      </ChordTooltip>
+                      <div key={`${definition.chord}-${definition.fingering}`}  className="inline-flex">
+                          <span className="text-[var(--chord)] min-w-[60px]">{definition.chord}</span>
+                          <span className="text-[var(--muted)]">{definition.fingering}</span>
+                      </div>
                     ))}
                   </div>
                 ) : null}
@@ -1209,19 +1265,29 @@ export function SongbookApp() {
 
               <div className="mb-2">
                 <h1 className="m-0 text-2xl font-semibold" dir={textDirection(view.title)}>{view.title}</h1>
-                {view.artist ? (
-                  <p className="m-0 text-sm text-[var(--muted)]" dir={textDirection(view.artist)}>
-                    <a
-                      className="transition-colors hover:text-[var(--text)]"
-                      href={routeHash({ mode: 'artist', artist: view.artist })}
-                      onClick={() => {
-                        const nextRoute: AppRoute = { mode: 'artist', artist: view.artist as string }
-                        openRoute(nextRoute)
-                      }}
-                    >
-                      {view.artist}
-                    </a>
-                  </p>
+                {view.artists.length > 0 ? (
+                  <div className="m-0 text-sm text-[var(--muted)] flex flex-wrap gap-1" dir={textDirection(view.artists.join(' '))}>
+                    {view.artists.map((artist, index) => (
+                      <div key={artist}>
+                        <a
+                          className="transition-colors hover:text-[var(--text)]"
+                          href={routePath({ mode: 'artist', artist })}
+                          onClick={(event) => {
+                            if (!shouldHandleLinkClick(event)) {
+                              return
+                            }
+
+                            event.preventDefault()
+                            const nextRoute: AppRoute = { mode: 'artist', artist }
+                            openRoute(nextRoute)
+                          }}
+                        >
+                          {artist}
+                        </a>
+                        {index < view.artists.length - 1 && <span className="text-[var(--muted)]">,</span>}
+                      </div>
+                    ))}
+                  </div>
                 ) : null}
                 {view.comment ? <p className="m-0 text-sm text-[var(--muted)]" dir={textDirection(view.comment)}>{view.comment}</p> : null}
               </div>
@@ -1396,6 +1462,13 @@ export function SongbookApp() {
                 </div>
               ) : null}
             </article>
+          ) : route.mode === 'song' && status === 'loading' ? (
+            <div className="grid place-items-center rounded-xl border border-[var(--border)] px-4 py-16 text-center text-sm text-[var(--muted)]">
+              <div className="grid gap-2">
+                <Spinner size="sm" />
+                <p className="m-0">Loading song…</p>
+              </div>
+            </div>
           ) : (
             <p className="text-sm text-[var(--muted)]">Song not found in this folder.</p>
           )}

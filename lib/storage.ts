@@ -23,6 +23,21 @@ interface SyncMeta {
   count: number
 }
 
+function normalizeCachedArtists(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((artist) => String(artist).trim()).filter(Boolean)
+  }
+
+  if (typeof value === 'string') {
+    return value
+      .split(',')
+      .map((artist) => artist.trim())
+      .filter(Boolean)
+  }
+
+  return []
+}
+
 const SETTINGS_KEY = 'settings'
 const SYNC_META_PREFIX = 'sync:'
 const SONG_SHAS_PREFIX = 'song-shas:'
@@ -74,13 +89,13 @@ export async function clearSettings(): Promise<void> {
 
 export async function loadCachedSongs(key: string): Promise<SongEntry[]> {
   const database = await db()
-  const records = (await database.getAllFromIndex('songs', 'repoKey', key)) as StoredSong[]
+  const records = (await database.getAllFromIndex('songs', 'repoKey', key)) as Record<string, any>[]
   return records
     .map((record) => ({
       path: record.path,
       name: record.name,
       title: record.title,
-      artist: record.artist,
+      artists: normalizeCachedArtists(record.artists ?? record.artist),
       format: record.format,
       raw: record.raw,
       source: 'cache' as const,
