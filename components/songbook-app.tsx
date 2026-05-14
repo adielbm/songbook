@@ -47,6 +47,7 @@ import {
   saveSyncMeta,
   type RepoSettings,
 } from '@/lib/storage'
+import { dir } from 'console'
 
 const MIN_FONT_SIZE = 14
 const MAX_FONT_SIZE = 28
@@ -1218,7 +1219,6 @@ export function SongbookApp() {
 
           {view ? (
             <article className="song-sheet rounded-xl py-3" dir={view.format === 'chords' ? 'ltr' : view.rtl ? 'rtl' : 'ltr'}>
-              <hr className="mb-3 border-[var(--border)]" />
               <div className="no-print flex flex-wrap items-center gap-1.5">
                 <Button aria-label="Transpose up" variant="outline" onPress={() => setTranspose((value) => value + 1)}>
                   <Plus size={16} />
@@ -1254,21 +1254,21 @@ export function SongbookApp() {
                 {view.fingerings?.length ? (
                   <div className="grid text-[var(--muted)] py-2 border-t border-b border-[var(--border)] my-3">
                     {view.fingerings.map((definition) => (
-                      <div key={`${definition.chord}-${definition.fingering}`}  className="inline-flex">
-                          <span className="text-[var(--chord)] min-w-[60px]">{definition.chord}</span>
-                          <span className="text-[var(--muted)]">{definition.fingering}</span>
+                      <div key={`${definition.chord}-${definition.fingering}`} className="inline-flex">
+                        <span className="text-[var(--chord)] min-w-[60px]">{definition.chord}</span>
+                        <span className="text-[var(--muted)]">{definition.fingering}</span>
                       </div>
                     ))}
                   </div>
                 ) : null}
               </div>
 
-              <div className="mb-2">
-                <h1 className="m-0 text-2xl font-semibold" dir={textDirection(view.title)}>{view.title}</h1>
+              <div style={{ direction: 'rtl' }} className="mb-2 text-right">
+                <span className="m-0 pl-2 font-semibold">{view.title}</span>
                 {view.artists.length > 0 ? (
-                  <div className="m-0 text-sm text-[var(--muted)] flex flex-wrap gap-1" dir={textDirection(view.artists.join(' '))}>
+                  <span className="m-0" dir={textDirection(view.artists.join(' '))}>
                     {view.artists.map((artist, index) => (
-                      <div key={artist}>
+                      <span key={artist}>
                         <a
                           className="transition-colors hover:text-[var(--text)]"
                           href={routePath({ mode: 'artist', artist })}
@@ -1285,9 +1285,9 @@ export function SongbookApp() {
                           {artist}
                         </a>
                         {index < view.artists.length - 1 && <span className="text-[var(--muted)]">,</span>}
-                      </div>
+                      </span>
                     ))}
-                  </div>
+                  </span>
                 ) : null}
                 {view.comment ? <p className="m-0 text-sm text-[var(--muted)]" dir={textDirection(view.comment)}>{view.comment}</p> : null}
               </div>
@@ -1356,7 +1356,7 @@ export function SongbookApp() {
                   {view.sections.map((section, sectionIndex) => (
                     <section key={`${section.label}-${sectionIndex}`}>
                       {section.label.toLowerCase() !== 'song' ? (
-                        <h3 className="mb-1 text-sm p-1 font-bold uppercase tracking-[0.08em] bg-[var(--song-section-bg)]/40 text-[var(--song-section)]" dir={textDirection(section.label)}>{section.label}</h3>
+                        <h3 className="sec-label mb-1 text-sm p-1 font-bold uppercase tracking-[0.08em] bg-[var(--song-section-bg)]/40 text-[var(--song-section)]" dir={textDirection(section.label)}>{section.label}</h3>
                       ) : null}
                       <div className="grid gap-2">
                         {section.lines.map((line, index) => (
@@ -1403,9 +1403,10 @@ export function SongbookApp() {
                                 <p
                                   key={`${section.label}-${sectionIndex}-${index}`}
                                   className="m-0 whitespace-pre-wrap leading-6"
-                                  style={{ fontFamily: 'var(--chord-font)',
+                                  style={{
+                                    fontFamily: 'var(--chord-font)',
                                     borderBottom: '1px solid var(--light-border)'
-                                   }}
+                                  }}
                                   dir="ltr"
                                 >
                                   {tokenizeCustomLine(line, view?.detectedTonic ?? null, view?.detectedIsMinor ?? false).map((token, tokenIndex) =>

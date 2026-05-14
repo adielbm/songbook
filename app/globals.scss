@@ -218,6 +218,22 @@ body {
   body {
     background: var(--flexoki-paper) !important;
     color: var(--flexoki-black) !important;
+    width: 400px;
+    direction: rtl;
+  }
+
+  * {
+    color: var(--flexoki-black) !important;
+
+    .sec-label {
+      background: var(--flexoki-black) !important;
+      color: var(--flexoki-white) !important;
+    }
+
+  }
+
+  .phrase-lyric:first-letter {
+    color: var(--flexoki-black) !important;
   }
 
   .no-print {
@@ -230,4 +246,13 @@ body {
     margin: 0 !important;
     padding: 0 !important;
   }
+
+  .phrase-chord {
+    color: var(--flexoki-black) !important;
+    font-weight: bold;
+  }
+
+
+
+
 }
