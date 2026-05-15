@@ -10,8 +10,6 @@
   },
   "dependencies": {
     "@floating-ui/react": "^0.27.19",
-    "@heroui/react": "^3.0.3",
-    "@heroui/styles": "^3.0.3",
     "@tailwindcss/postcss": "^4.2.3",
     "chordsheetjs": "^14.5.0",
     "idb": "^8.0.3",

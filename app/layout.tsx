@@ -73,7 +73,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="he" dir="rtl" suppressHydrationWarning>
       <body
         className={`${miriamLibre.variable} ${robotoCondensed.variable} bg-background text-foreground`}
         style={{

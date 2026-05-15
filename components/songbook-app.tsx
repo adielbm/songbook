@@ -1,16 +1,5 @@
 'use client'
 
-import {
-  Button,
-  Card,
-  Chip,
-  Label,
-  Input,
-  Separator,
-  Spinner,
-  TextField,
-  TextArea,
-} from '@heroui/react'
 import { useTheme } from 'next-themes'
 import { useEffect, useMemo, useState } from 'react'
 import {
@@ -402,9 +391,9 @@ function ThemeToggle() {
 
   if (!mounted) {
     return (
-      <Button aria-label="Toggle theme" variant="outline" size="sm" className="min-w-8 px-2" isDisabled>
+      <button aria-label="Toggle theme" disabled className="btn-outline btn-sm">
         <SunMedium size={16} />
-      </Button>
+      </button>
     )
   }
 
@@ -412,15 +401,13 @@ function ThemeToggle() {
   const isDark = current === 'dark'
 
   return (
-    <Button
+    <button
       aria-label="Toggle theme"
-      variant="outline"
-      size="sm"
-      className="min-w-8 px-2"
-      onPress={() => setTheme(isDark ? 'light' : 'dark')}
+      className="btn-outline btn-sm"
+      onClick={() => setTheme(isDark ? 'light' : 'dark')}
     >
       {isDark ? <MoonStar size={16} /> : <SunMedium size={16} />}
-    </Button>
+    </button>
   )
 }
 
@@ -832,35 +819,31 @@ export function SongbookApp() {
   }, [view?.fingerings, view?.detectedTonic, view?.detectedIsMinor])
 
   return (
-    <div className="mx-auto min-h-screen max-w-6xl px-1.5 py-2 md:px-3" style={{ ['--song-font-size' as string]: `${fontSize}px` }}>
+    <div className="mx-auto min-h-screen max-w-6xl px-1.5 py-2 md:px-3" style={{ ['--song-font-size' as string]: `${fontSize}px` }} dir="rtl" lang="he">
       {/* <div className="text-center text-[7px] text-[var(--muted)]">{syncMetaText}</div> */}
       <header className="no-print z-20 mb-3 rounded-[1.2rem]">
         <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-1.5">
-            <Button
+            <button
               aria-label="Home"
-              variant="outline"
-              size="sm"
-              className="min-w-8 px-2"
-              onPress={() => {
+              className="btn-outline btn-sm"
+              onClick={() => {
                 const nextRoute: AppRoute = { mode: 'home' }
                 openRoute(nextRoute)
               }}
             >
               <Home size={16} />
-            </Button>
-            <Button
+            </button>
+            <button
               aria-label="Artists"
-              variant="outline"
-              size="sm"
-              className="min-w-8 px-2"
-              onPress={() => {
+              className="btn-outline btn-sm"
+              onClick={() => {
                 const nextRoute: AppRoute = { mode: 'artists' }
                 openRoute(nextRoute)
               }}
             >
               <Users size={16} />
-            </Button>
+            </button>
           </div>
 
           <div className="flex items-center gap-1.5">
@@ -868,50 +851,47 @@ export function SongbookApp() {
             {pulling ? (
               <div className="flex items-center gap-2 text-[0.65rem] text-[var(--muted)]">
                 <span className="inline-flex items-center gap-2">
-                  <Spinner size="sm" />
+                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
                   {pullProgress.done}/{pullProgress.total || '?'}
                 </span>
               </div>
             ) : null}
 
-            <Button
+            <button
               aria-label="Sync repository"
-              variant="outline"
-              size="sm"
-              onPress={() => {
+              className="btn-outline"
+              onClick={() => {
                 if (!settings) {
                   navigate({ mode: 'settings' })
                   return
                 }
                 void handlePull()
               }}
-              className="gap-1 px-2"
             >
-              <RefreshCw size={16} className={pulling ? 'animate-spin' : ''} />
               <span className="text-xs font-medium">{songs.length}</span>
-            </Button>
-            <Button
+            </button>
+            <button
               aria-label="Open settings"
-              variant="outline"
-              size="sm"
-              className="min-w-8 px-2"
-              onPress={() => {
+              className="btn-outline btn-sm"
+              onClick={() => {
                 const nextRoute: AppRoute = { mode: 'settings' }
                 openRoute(nextRoute)
               }}
             >
               <Settings2 size={16} />
-            </Button>
+            </button>
             <ThemeToggle />
           </div>
         </div>
 
         <div className="grid gap-2">
           <div className="w-full">
-            <div className="flex items-center gap-2 rounded-md border border-[var(--border)] px-2 py-1.5">
+            <div className="input-group">
               <input
                 aria-label="Search songs or folders"
-                className="w-full bg-transparent text-sm outline-none placeholder:text-[var(--muted)]"
                 placeholder="Search"
                 type="text"
                 value={query}
@@ -945,9 +925,10 @@ export function SongbookApp() {
         <main className="grid gap-3">
           <form className="grid gap-4" onSubmit={handleSaveSettings}>
             <div className="grid gap-3 md:grid-cols-2">
-              <TextField className="grid gap-1" variant="secondary">
-                <Label>Repository</Label>
-                <Input
+              <div className="grid gap-1">
+                <label className="text-sm font-medium text-[var(--text)]">Repository</label>
+                <input
+                  className="input-field"
                   placeholder="owner/repo"
                   value={draft.repository}
                   onChange={(event) => {
@@ -955,10 +936,11 @@ export function SongbookApp() {
                     setDraft((state) => ({ ...state, repository: value }))
                   }}
                 />
-              </TextField>
-              <TextField className="grid gap-1" variant="secondary">
-                <Label>Branch</Label>
-                <Input
+              </div>
+              <div className="grid gap-1">
+                <label className="text-sm font-medium text-[var(--text)]">Branch</label>
+                <input
+                  className="input-field"
                   placeholder="main"
                   value={draft.branch}
                   onChange={(event) => {
@@ -966,10 +948,11 @@ export function SongbookApp() {
                     setDraft((state) => ({ ...state, branch: value }))
                   }}
                 />
-              </TextField>
-              <TextField className="grid gap-1" variant="secondary">
-                <Label>Chord path (optional)</Label>
-                <Input
+              </div>
+              <div className="grid gap-1">
+                <label className="text-sm font-medium text-[var(--text)]">Chord path (optional)</label>
+                <input
+                  className="input-field"
                   placeholder="leave blank for repo root"
                   value={draft.chordsPath}
                   onChange={(event) => {
@@ -977,10 +960,11 @@ export function SongbookApp() {
                     setDraft((state) => ({ ...state, chordsPath: value }))
                   }}
                 />
-              </TextField>
-              <TextField className="grid gap-1" variant="secondary">
-                <Label>GitHub token</Label>
-                <Input
+              </div>
+              <div className="grid gap-1">
+                <label className="text-sm font-medium text-[var(--text)]">GitHub token</label>
+                <input
+                  className="input-field"
                   placeholder="read-only token"
                   type="password"
                   value={draft.token}
@@ -989,41 +973,42 @@ export function SongbookApp() {
                     setDraft((state) => ({ ...state, token: value }))
                   }}
                 />
-              </TextField>
+              </div>
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <Button type="submit" variant="outline" isDisabled={pulling} className="gap-1.5">
+              <button 
+                type="submit" 
+                disabled={pulling}
+                className="btn-outline"
+              >
                 <UploadCloud size={16} />
                 Save settings
-              </Button>
-              <Button
+              </button>
+              <button
+                type="button"
+                disabled={!settings}
                 aria-label="Sync repository"
-                isDisabled={!settings}
-                variant="outline"
-                onPress={() => {
+                className="btn-outline"
+                onClick={() => {
                   void handlePull()
                 }}
               >
                 <RefreshCw size={16} />
-              </Button>
-              <Button variant="danger" onPress={() => void handleResetSettings()}>
+              </button>
+              <button 
+                type="button"
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
+                onClick={() => void handleResetSettings()}
+              >
                 <X size={16} />
                 Clear settings
-              </Button>
+              </button>
             </div>
           </form>
         </main>
       ) : route.mode === 'home' || route.mode === 'folder' ? (
         <main className="grid gap-3">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <h4 className="m-0 text-xl font-semibold">{route.mode === 'folder' ? folderName(currentFolder) : 'All songs'}</h4>
-            </div>
-          </div>
-
-          <hr />
-
           {visibleRows.length ? (
             visibleRows.map((row) => {
               if (row.kind === 'folder') {
@@ -1032,7 +1017,7 @@ export function SongbookApp() {
                 return (
                   <a
                     key={row.folder}
-                    className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-transparent px-2 py-1.5 text-left text-sm text-[var(--text)] transition-colors hover:border-[var(--border)] hover: focus-visible:border-[var(--accent)] focus-visible: focus-visible:outline-none"
+                    className="library-row"
                     href={routePath(nextRoute)}
                     onClick={(event) => {
                       if (!shouldHandleLinkClick(event)) {
@@ -1056,7 +1041,7 @@ export function SongbookApp() {
               return (
                 <a
                   key={row.song.path}
-                  className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-transparent px-2 py-1.5 text-left text-sm text-[var(--text)] transition-colors hover:border-[var(--border)] hover: focus-visible:border-[var(--accent)] focus-visible: focus-visible:outline-none"
+                  className="library-row"
                   href={routePath(nextRoute)}
                   onClick={(event) => {
                     if (!shouldHandleLinkClick(event)) {
@@ -1098,7 +1083,7 @@ export function SongbookApp() {
               return (
                 <a
                   key={artist}
-                  className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-transparent px-2 py-1.5 text-left text-sm text-[var(--text)] transition-colors hover:border-[var(--border)] hover: focus-visible:border-[var(--accent)] focus-visible: focus-visible:outline-none"
+                  className="library-row"
                   href={routePath(nextRoute)}
                   onClick={(event) => {
                     if (!shouldHandleLinkClick(event)) {
@@ -1125,17 +1110,16 @@ export function SongbookApp() {
         <main className="grid gap-3">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <Button
+              <button
                 aria-label="Back to artists"
-                variant="outline"
-                onPress={() => {
+                className="btn-outline"
+                onClick={() => {
                   const nextRoute: AppRoute = { mode: 'artists' }
                   openRoute(nextRoute)
                 }}
               >
                 <ChevronLeft size={16} />
-              </Button>
-              <h4 className="m-0 text-xl font-semibold" dir={textDirection(route.artist)}>{normalizedQuery ? 'Search results' : route.artist}</h4>
+              </button>
             </div>
           </div>
 
@@ -1148,7 +1132,7 @@ export function SongbookApp() {
               return (
                 <a
                   key={row.song.path}
-                  className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-transparent px-2 py-1.5 text-left text-sm text-[var(--text)] transition-colors hover:border-[var(--border)] hover: focus-visible:border-[var(--accent)] focus-visible: focus-visible:outline-none"
+                  className="library-row"
                   href={routePath(nextRoute)}
                   onClick={(event) => {
                     if (!shouldHandleLinkClick(event)) {
@@ -1181,8 +1165,6 @@ export function SongbookApp() {
         <main className="grid gap-3">
           {normalizedQuery ? (
             <section className="grid gap-2">
-              <h4 className="m-0 text-xl font-semibold">Search results</h4>
-              <hr />
               {searchSongRows.length ? (
                 searchSongRows.map((row) => {
                   const nextRoute: AppRoute = { mode: 'song', folder: row.folder, slug: row.slug }
@@ -1190,7 +1172,7 @@ export function SongbookApp() {
                   return (
                     <a
                       key={row.song.path}
-                      className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-transparent px-2 py-1.5 text-left text-sm text-[var(--text)] transition-colors hover:border-[var(--border)] hover: focus-visible:border-[var(--accent)] focus-visible: focus-visible:outline-none"
+                      className="library-row"
                       href={routePath(nextRoute)}
                       onClick={(event) => {
                         if (!shouldHandleLinkClick(event)) {
@@ -1220,10 +1202,10 @@ export function SongbookApp() {
           {view ? (
             <article className="song-sheet rounded-xl py-3" dir={view.format === 'chords' ? 'ltr' : view.rtl ? 'rtl' : 'ltr'}>
               <div className="no-print flex flex-wrap items-center gap-1.5">
-                <Button aria-label="Transpose up" variant="outline" onPress={() => setTranspose((value) => value + 1)}>
+                <button aria-label="Transpose up" className="btn-outline" onClick={() => setTranspose((value) => value + 1)}>
                   <Plus size={16} />
-                </Button>
-                <Button aria-label="Reset transpose" variant={'outline'} onPress={() => setTranspose(0)}>
+                </button>
+                <button aria-label="Reset transpose" className="btn-outline" onClick={() => setTranspose(0)}>
                   <span
                     className={[
                       'inline-flex items-center justify-center rounded-full font-semibold tabular-nums',
@@ -1235,17 +1217,17 @@ export function SongbookApp() {
                   >
                     {transpose > 0 ? `+${transpose}` : transpose}
                   </span>
-                </Button>
-                <Button aria-label="Transpose down" variant="outline" onPress={() => setTranspose((value) => value - 1)}>
+                </button>
+                <button aria-label="Transpose down" className="btn-outline" onClick={() => setTranspose((value) => value - 1)}>
                   <Minus size={16} />
-                </Button>
+                </button>
                 <div className="ml-auto flex items-center gap-1.5">
-                  <Button aria-label="Decrease text size" variant="outline" onPress={() => setFontSize((size) => Math.max(MIN_FONT_SIZE, size - 1))}>
+                  <button aria-label="Decrease text size" className="btn-outline" onClick={() => setFontSize((size) => Math.max(MIN_FONT_SIZE, size - 1))}>
                     <AArrowDown size={16} />
-                  </Button>
-                  <Button aria-label="Increase text size" variant="outline" onPress={() => setFontSize((size) => Math.min(MAX_FONT_SIZE, size + 1))}>
+                  </button>
+                  <button aria-label="Increase text size" className="btn-outline" onClick={() => setFontSize((size) => Math.min(MAX_FONT_SIZE, size + 1))}>
                     <AArrowUp size={16} />
-                  </Button>
+                  </button>
                 </div>
               </div>
 
@@ -1263,14 +1245,14 @@ export function SongbookApp() {
                 ) : null}
               </div>
 
-              <div style={{ direction: 'rtl' }} className="mb-2 text-right">
+              <div style={{ direction: 'rtl' }} className="text-right song-title">
                 <span className="m-0 pl-2 font-semibold">{view.title}</span>
                 {view.artists.length > 0 ? (
                   <span className="m-0" dir={textDirection(view.artists.join(' '))}>
                     {view.artists.map((artist, index) => (
                       <span key={artist}>
                         <a
-                          className="transition-colors hover:text-[var(--text)]"
+                          className="transition-colors hover:text-[var(--text)] text-sm"
                           href={routePath({ mode: 'artist', artist })}
                           onClick={(event) => {
                             if (!shouldHandleLinkClick(event)) {
@@ -1284,12 +1266,12 @@ export function SongbookApp() {
                         >
                           {artist}
                         </a>
-                        {index < view.artists.length - 1 && <span className="text-[var(--muted)]">,</span>}
+                        {index < view.artists.length - 1 && <span>, </span>}
                       </span>
                     ))}
                   </span>
                 ) : null}
-                {view.comment ? <p className="m-0 text-sm text-[var(--muted)]" dir={textDirection(view.comment)}>{view.comment}</p> : null}
+                {view.comment ? <p className="comments m-0 text-sm text-[var(--muted)]" dir={textDirection(view.comment)}>{view.comment}</p> : null}
               </div>
 
               {view.choproBlocks?.length ? (
@@ -1352,13 +1334,15 @@ export function SongbookApp() {
               ) : null}
 
               {view.sections ? (
-                <div className="mt-3 grid gap-3" dir="ltr">
+                <div className="grid gap-1" dir="ltr">
                   {view.sections.map((section, sectionIndex) => (
                     <section key={`${section.label}-${sectionIndex}`}>
                       {section.label.toLowerCase() !== 'song' ? (
-                        <h3 className="sec-label mb-1 text-sm p-1 font-bold uppercase tracking-[0.08em] bg-[var(--song-section-bg)]/40 text-[var(--song-section)]" dir={textDirection(section.label)}>{section.label}</h3>
+                        <h3 className="sec-label p-1 font-bold uppercase tracking-[0.08em] bg-[var(--song-section-bg)]/40 text-[var(--song-section)]" dir={textDirection(section.label)}>
+                          <span className="sec-label-text">{section.label}</span>
+                        </h3>
                       ) : null}
-                      <div className="grid gap-2">
+                      <div className="grid gap-1 grid-chords">
                         {section.lines.map((line, index) => (
                           (() => {
                             const inlineTokens = parseInlineChordLine(line, view?.detectedTonic ?? null, view?.detectedIsMinor ?? false)
@@ -1402,7 +1386,7 @@ export function SongbookApp() {
                               return (
                                 <p
                                   key={`${section.label}-${sectionIndex}-${index}`}
-                                  className="m-0 whitespace-pre-wrap leading-6"
+                                  className="m-0 whitespace-pre-wrap leading-6 only-chords-line"
                                   style={{
                                     fontFamily: 'var(--chord-font)',
                                     borderBottom: '1px solid var(--light-border)'
@@ -1468,7 +1452,10 @@ export function SongbookApp() {
           ) : route.mode === 'song' && status === 'loading' ? (
             <div className="grid place-items-center rounded-xl border border-[var(--border)] px-4 py-16 text-center text-sm text-[var(--muted)]">
               <div className="grid gap-2">
-                <Spinner size="sm" />
+                <svg className="animate-spin h-8 w-8 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
                 <p className="m-0">Loading song…</p>
               </div>
             </div>
